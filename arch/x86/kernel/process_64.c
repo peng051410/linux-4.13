@@ -276,6 +276,7 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 	struct fpu *prev_fpu = &prev->fpu;
 	struct fpu *next_fpu = &next->fpu;
 	int cpu = smp_processor_id();
+    /* Task State Segment,里面有所有的寄存器 */
 	struct tss_struct *tss = &per_cpu(cpu_tss, cpu);
 	unsigned prev_fsindex, prev_gsindex;
 

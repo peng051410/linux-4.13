@@ -425,8 +425,9 @@ struct cfs_rq {
 #ifndef CONFIG_64BIT
 	u64 min_vruntime_copy;
 #endif
-
+    /* 指向红黑树的根节点 */
 	struct rb_root tasks_timeline;
+    /* 最左边的节点 */
 	struct rb_node *rb_leftmost;
 
 	/*
@@ -695,8 +696,11 @@ struct rq {
 	unsigned long nr_load_updates;
 	u64 nr_switches;
 
+    /* 完全公平队列 */
 	struct cfs_rq cfs;
+    /* 实时队列 */
 	struct rt_rq rt;
+    /* DEADLINE队列 */
 	struct dl_rq dl;
 
 #ifdef CONFIG_FAIR_GROUP_SCHED

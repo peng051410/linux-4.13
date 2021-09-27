@@ -1654,6 +1654,7 @@ static inline void ttwu_activate(struct rq *rq, struct task_struct *p, int en_fl
 static void ttwu_do_wakeup(struct rq *rq, struct task_struct *p, int wake_flags,
 			   struct rq_flags *rf)
 {
+    /* 检查是否需要抢占 */
 	check_preempt_curr(rq, p, wake_flags);
 	p->state = TASK_RUNNING;
 	trace_sched_wakeup(p);
@@ -1844,6 +1845,7 @@ static void ttwu_queue(struct task_struct *p, int cpu, int wake_flags)
 
 	rq_lock(rq, &rf);
 	update_rq_clock(rq);
+    /* 激活任务 */
 	ttwu_do_activate(rq, p, wake_flags, &rf);
 	rq_unlock(rq, &rf);
 }
@@ -2057,6 +2059,7 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 
 #endif /* CONFIG_SMP */
 
+    /* 将唤醒的任务回到队列中 */
 	ttwu_queue(p, cpu, wake_flags);
 stat:
 	ttwu_stat(p, cpu, wake_flags);
@@ -2749,6 +2752,7 @@ context_switch(struct rq *rq, struct task_struct *prev,
 		mmgrab(oldmm);
 		enter_lazy_tlb(oldmm, next);
 	} else
+    /* 内存空间切换 */
 		switch_mm_irqs_off(oldmm, mm, next);
 
 	if (!prev->mm) {
@@ -3265,6 +3269,7 @@ static void __sched notrace __schedule(bool preempt)
 	int cpu;
 
 	cpu = smp_processor_id();
+    /* 从当前CPU取出队列 */
 	rq = cpu_rq(cpu);
 	prev = rq->curr;
 
@@ -3555,7 +3560,7 @@ EXPORT_SYMBOL_GPL(preempt_schedule_notrace);
 
 /*
  * this is the entry point to schedule() from kernel preemption
- * off of irq context.
+ 
  * Note, that this is called and return with irqs disabled. This will
  * protect us against recursive calling from irq.
  */

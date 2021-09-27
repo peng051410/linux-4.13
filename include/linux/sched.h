@@ -553,13 +553,14 @@ struct task_struct {
 	int				wake_cpu;
 #endif
 	int				on_rq;
-
+    /* 调度优先级 */
 	int				prio;
 	int				static_prio;
 	int				normal_prio;
 	unsigned int			rt_priority;
 
 	const struct sched_class	*sched_class;
+    /* 调度实体, 完全公平调度实体 */
 	struct sched_entity		se;
 	struct sched_rt_entity		rt;
 #ifdef CONFIG_CGROUP_SCHED
@@ -575,7 +576,7 @@ struct task_struct {
 #ifdef CONFIG_BLK_DEV_IO_TRACE
 	unsigned int			btrace_seq;
 #endif
-
+    /* 调度策略 */
 	unsigned int			policy;
 	int				nr_cpus_allowed;
 	cpumask_t			cpus_allowed;
@@ -1094,6 +1095,7 @@ struct task_struct {
 	randomized_struct_fields_end
 
 	/* CPU-specific state of this task: */
+    /* 保存所有要切换的寄存器 */
 	struct thread_struct		thread;
 
 	/*
@@ -1503,6 +1505,7 @@ static inline int test_tsk_thread_flag(struct task_struct *tsk, int flag)
 	return test_ti_thread_flag(task_thread_info(tsk), flag);
 }
 
+/* 标记进程要被抢占 */
 static inline void set_tsk_need_resched(struct task_struct *tsk)
 {
 	set_tsk_thread_flag(tsk,TIF_NEED_RESCHED);

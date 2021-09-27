@@ -146,6 +146,7 @@ static void exit_to_usermode_loop(struct pt_regs *regs, u32 cached_flags)
 		/* We have work to do. */
 		local_irq_enable();
 
+        /* 打了_TIF_NEED_RESCHED标签，需要被调度 */
 		if (cached_flags & _TIF_NEED_RESCHED)
 			schedule();
 

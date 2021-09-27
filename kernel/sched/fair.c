@@ -653,6 +653,7 @@ int sched_proc_update_handler(struct ctl_table *table, int write,
 #endif
 
 /*
+ * 计算task真正运行的vruntime公式
  * delta /= w
  */
 static inline u64 calc_delta_fair(u64 delta, struct sched_entity *se)
@@ -839,12 +840,14 @@ static void update_tg_load_avg(struct cfs_rq *cfs_rq, int force)
 static void update_curr(struct cfs_rq *cfs_rq)
 {
 	struct sched_entity *curr = cfs_rq->curr;
+    /* 当前的时间 */
 	u64 now = rq_clock_task(rq_of(cfs_rq));
 	u64 delta_exec;
 
 	if (unlikely(!curr))
 		return;
 
+    /* 这次需要运行的时间(这是其实是实际运行的时间，需要进行转化) */
 	delta_exec = now - curr->exec_start;
 	if (unlikely((s64)delta_exec <= 0))
 		return;
@@ -3824,8 +3827,9 @@ check_preempt_tick(struct cfs_rq *cfs_rq, struct sched_entity *curr)
 	unsigned long ideal_runtime, delta_exec;
 	struct sched_entity *se;
 	s64 delta;
-
+    /* 计算一个调度周期中，该进程运行的实际时间 */
 	ideal_runtime = sched_slice(cfs_rq, curr);
+    /* sum_exec_runtime为进程总共执行的时间,prev_sum_exec_runtime为上次调度中该进程使用的时间 */
 	delta_exec = curr->sum_exec_runtime - curr->prev_sum_exec_runtime;
 	if (delta_exec > ideal_runtime) {
 		resched_curr(rq_of(cfs_rq));
@@ -3845,6 +3849,7 @@ check_preempt_tick(struct cfs_rq *cfs_rq, struct sched_entity *curr)
 	if (delta_exec < sysctl_sched_min_granularity)
 		return;
 
+    /* 取出红黑树中最小的进程 */
 	se = __pick_first_entity(cfs_rq);
 	delta = curr->vruntime - se->vruntime;
 
@@ -6212,6 +6217,7 @@ again:
 		 * forget we've ever seen it.
 		 */
 		if (curr) {
+            /* 如果任务依然可以运行 */
 			if (curr->on_rq)
 				update_curr(cfs_rq);
 			else
@@ -6231,6 +6237,7 @@ again:
 		cfs_rq = group_cfs_rq(se);
 	} while (cfs_rq);
 
+    /* 取出下一个执行的任务 */
 	p = task_of(se);
 
 	/*
@@ -6255,7 +6262,9 @@ again:
 			}
 		}
 
+        /* 把前任放进红黑树 */
 		put_prev_entity(cfs_rq, pse);
+        /* 设置继任者为当前任务 */
 		set_next_entity(cfs_rq, se);
 	}
 

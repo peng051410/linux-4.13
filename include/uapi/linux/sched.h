@@ -30,14 +30,18 @@
 #define CLONE_IO		0x80000000	/* Clone io context */
 
 /*
+ * 调度策略定义值
  * Scheduling policies
  */
 #define SCHED_NORMAL		0
+/* 先来先得，实时调度 */
 #define SCHED_FIFO		1
+/* 轮流调度，实时调度 */
 #define SCHED_RR		2
 #define SCHED_BATCH		3
 /* SCHED_ISO: reserved but not implemented yet */
 #define SCHED_IDLE		5
+/* 距离当前时间点最近的调度，实时调度 */
 #define SCHED_DEADLINE		6
 
 /* Can be ORed in to make sure the process is reverted back to SCHED_NORMAL on fork */
