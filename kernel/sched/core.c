@@ -2327,6 +2327,7 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 	unsigned long flags;
 	int cpu = get_cpu();
 
+    /* 初始化sched_entity */
 	__sched_fork(clone_flags, p);
 	/*
 	 * We mark the process as NEW here. This guarantees that
@@ -2338,6 +2339,7 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 	/*
 	 * Make sure we do not leak PI boosting priority to the child.
 	 */
+    /* 初始化优先级 */
 	p->prio = current->normal_prio;
 
 	/*
@@ -2367,6 +2369,7 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 	} else if (rt_prio(p->prio)) {
 		p->sched_class = &rt_sched_class;
 	} else {
+        /* 设置调度类 */
 		p->sched_class = &fair_sched_class;
 	}
 
@@ -2385,6 +2388,7 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 	 * so use __set_task_cpu().
 	 */
 	__set_task_cpu(p, cpu);
+    /* 调用调度类的task_fork */
 	if (p->sched_class->task_fork)
 		p->sched_class->task_fork(p);
 	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
@@ -2451,6 +2455,7 @@ void wake_up_new_task(struct task_struct *p)
 	update_rq_clock(rq);
 	post_init_entity_util_avg(&p->se);
 
+    /* 激活task */
 	activate_task(rq, p, ENQUEUE_NOCLOCK);
 	p->on_rq = TASK_ON_RQ_QUEUED;
 	trace_sched_wakeup_new(p);

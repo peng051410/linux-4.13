@@ -341,6 +341,7 @@ int copy_creds(struct task_struct *p, unsigned long clone_flags)
 		return 0;
 	}
 
+    /* 准备一个新的creds */
 	new = prepare_creds();
 	if (!new)
 		return -ENOMEM;
@@ -371,6 +372,7 @@ int copy_creds(struct task_struct *p, unsigned long clone_flags)
 #endif
 
 	atomic_inc(&new->user->processes);
+    /* 将我能操作谁与谁能操作我指向新创建的credget_cred */
 	p->cred = p->real_cred = get_cred(new);
 	alter_cred_subscribers(new, 2);
 	validate_creds(new);

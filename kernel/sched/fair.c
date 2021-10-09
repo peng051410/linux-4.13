@@ -8988,17 +8988,21 @@ static void task_fork_fair(struct task_struct *p)
 	cfs_rq = task_cfs_rq(current);
 	curr = cfs_rq->curr;
 	if (curr) {
+        /* 更新统计量 */
 		update_curr(cfs_rq);
 		se->vruntime = curr->vruntime;
 	}
+    /* 初始化sched_entity */
 	place_entity(cfs_rq, se, 1);
 
+    /* sysctl_可以设置子进程与父进程谁先运行 */
 	if (sysctl_sched_child_runs_first && curr && entity_before(curr, se)) {
 		/*
 		 * Upon rescheduling, sched_class::put_prev_task() will place
 		 * 'current' within the tree based on its new key value.
 		 */
 		swap(curr->vruntime, se->vruntime);
+        /* 设置父进程应该被调度 */
 		resched_curr(rq);
 	}
 

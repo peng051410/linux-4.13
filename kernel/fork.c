@@ -510,16 +510,17 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
 
 	if (node == NUMA_NO_NODE)
 		node = tsk_fork_get_node(orig);
+    /* 分配一个task_struct结构 */
 	tsk = alloc_task_struct_node(node);
 	if (!tsk)
 		return NULL;
-
+    /* 分配内核栈 */
 	stack = alloc_thread_stack_node(tsk, node);
 	if (!stack)
 		goto free_tsk;
 
 	stack_vm_area = task_stack_vm_area(tsk);
-
+    /* 复制task_struct */
 	err = arch_dup_task_struct(tsk, orig);
 
 	/*
@@ -548,6 +549,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
 	tsk->seccomp.filter = NULL;
 #endif
 
+    /* 设置thread_info */
 	setup_thread_stack(tsk, orig);
 	clear_user_return_notifier(tsk);
 	clear_tsk_need_resched(tsk);
@@ -1580,6 +1582,7 @@ static __latent_entropy struct task_struct *copy_process(
 		goto fork_out;
 
 	retval = -ENOMEM;
+    /* 主要执行复制结构操作 */
 	p = dup_task_struct(current, node);
 	if (!p)
 		goto fork_out;
@@ -1613,6 +1616,7 @@ static __latent_entropy struct task_struct *copy_process(
 	}
 	current->flags &= ~PF_NPROC_EXCEEDED;
 
+    /* 处理权限相关 */
 	retval = copy_creds(p, clone_flags);
 	if (retval < 0)
 		goto bad_fork_free;
@@ -1637,6 +1641,7 @@ static __latent_entropy struct task_struct *copy_process(
 
 	init_sigpending(&p->pending);
 
+    /* 重新设置进程运行的统计量 */
 	p->utime = p->stime = p->gtime = 0;
 #ifdef CONFIG_ARCH_HAS_SCALED_CPUTIME
 	p->utimescaled = p->stimescaled = 0;
@@ -1660,6 +1665,7 @@ static __latent_entropy struct task_struct *copy_process(
 
 	posix_cpu_timers_init(p);
 
+    /* 重新设置进程运行的统计量 */
 	p->start_time = ktime_get_ns();
 	p->real_start_time = ktime_get_boot_ns();
 	p->io_context = NULL;
@@ -1711,6 +1717,7 @@ static __latent_entropy struct task_struct *copy_process(
 #endif
 
 	/* Perform scheduler related setup. Assign this task to a CPU. */
+    /* 设置调度相关的变量 */
 	retval = sched_fork(clone_flags, p);
 	if (retval)
 		goto bad_fork_cleanup_policy;
@@ -1729,18 +1736,22 @@ static __latent_entropy struct task_struct *copy_process(
 	retval = copy_semundo(clone_flags, p);
 	if (retval)
 		goto bad_fork_cleanup_security;
+    /* 复制进程打开的文件信息 */
 	retval = copy_files(clone_flags, p);
 	if (retval)
 		goto bad_fork_cleanup_semundo;
+    /* 复制进程的目录信息 */
 	retval = copy_fs(clone_flags, p);
 	if (retval)
 		goto bad_fork_cleanup_files;
+    /* 初始化与信号量相关的变量 */
 	retval = copy_sighand(clone_flags, p);
 	if (retval)
 		goto bad_fork_cleanup_fs;
 	retval = copy_signal(clone_flags, p);
 	if (retval)
 		goto bad_fork_cleanup_sighand;
+    /* 复制内存空间 */
 	retval = copy_mm(clone_flags, p);
 	if (retval)
 		goto bad_fork_cleanup_signal;
@@ -1791,6 +1802,7 @@ static __latent_entropy struct task_struct *copy_process(
 	clear_all_latency_tracing(p);
 
 	/* ok, now we should be set up.. */
+    /* 分配pid，设置tid,groupleader */
 	p->pid = pid_nr(pid);
 	if (clone_flags & CLONE_THREAD) {
 		p->exit_signal = -1;
@@ -2032,6 +2044,7 @@ long _do_fork(unsigned long clone_flags,
 			trace = 0;
 	}
 
+    /* 复制进程 */
 	p = copy_process(clone_flags, stack_start, stack_size,
 			 child_tidptr, NULL, trace, tls, NUMA_NO_NODE);
 	add_latent_entropy();
@@ -2057,6 +2070,7 @@ long _do_fork(unsigned long clone_flags,
 			get_task_struct(p);
 		}
 
+        /* 第二件大事，唤醒新的进程 */
 		wake_up_new_task(p);
 
 		/* forking complete and child started to run, tell ptracer */
