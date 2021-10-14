@@ -1230,6 +1230,7 @@ static int copy_mm(unsigned long clone_flags, struct task_struct *tsk)
 	/* initialize the new vmacache entries */
 	vmacache_flush(tsk);
 
+    /* 对于创建线程，指向原来的MM */
 	if (clone_flags & CLONE_VM) {
 		mmget(oldmm);
 		mm = oldmm;
@@ -1253,6 +1254,7 @@ fail_nomem:
 static int copy_fs(unsigned long clone_flags, struct task_struct *tsk)
 {
 	struct fs_struct *fs = current->fs;
+    /* 针对线程创建fs_struct用户+1 */
 	if (clone_flags & CLONE_FS) {
 		/* tsk->fs is already what we want */
 		spin_lock(&fs->lock);
@@ -1282,6 +1284,7 @@ static int copy_files(unsigned long clone_flags, struct task_struct *tsk)
 	if (!oldf)
 		goto out;
 
+    /* 针对创建线程的，只是file_struct引用+1 */
 	if (clone_flags & CLONE_FILES) {
 		atomic_inc(&oldf->count);
 		goto out;
@@ -1327,6 +1330,7 @@ static int copy_sighand(unsigned long clone_flags, struct task_struct *tsk)
 {
 	struct sighand_struct *sig;
 
+    /* 针对线程，对sighand引用+1 */
 	if (clone_flags & CLONE_SIGHAND) {
 		atomic_inc(&current->sighand->count);
 		return 0;
@@ -1380,6 +1384,7 @@ static int copy_signal(unsigned long clone_flags, struct task_struct *tsk)
 {
 	struct signal_struct *sig;
 
+    /* 对于线程，直接返回 */
 	if (clone_flags & CLONE_THREAD)
 		return 0;
 
@@ -1398,6 +1403,7 @@ static int copy_signal(unsigned long clone_flags, struct task_struct *tsk)
 
 	init_waitqueue_head(&sig->wait_chldexit);
 	sig->curr_target = tsk;
+    /* 初始化shared_pending,进程与线程共享 */
 	init_sigpending(&sig->shared_pending);
 	seqlock_init(&sig->stats_lock);
 	prev_cputime_init(&sig->prev_cputime);
@@ -1639,6 +1645,7 @@ static __latent_entropy struct task_struct *copy_process(
 	p->vfork_done = NULL;
 	spin_lock_init(&p->alloc_lock);
 
+    /* 初始化信号列表，是线程信号就发给线程，是进行信号就发给主线程 */
 	init_sigpending(&p->pending);
 
     /* 重新设置进程运行的统计量 */
@@ -1804,6 +1811,8 @@ static __latent_entropy struct task_struct *copy_process(
 	/* ok, now we should be set up.. */
     /* 分配pid，设置tid,groupleader */
 	p->pid = pid_nr(pid);
+
+    /* 线程带FLAG进行所属改变 */
 	if (clone_flags & CLONE_THREAD) {
 		p->exit_signal = -1;
 		p->group_leader = current->group_leader;

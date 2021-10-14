@@ -3679,6 +3679,7 @@ enqueue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 	if (renorm && curr)
 		se->vruntime += cfs_rq->min_vruntime;
 
+    /* 更新运行统计量 */
 	update_curr(cfs_rq);
 
 	/*
@@ -3710,6 +3711,7 @@ enqueue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 	update_stats_enqueue(cfs_rq, se, flags);
 	check_spread(cfs_rq, se);
 	if (!curr)
+    /*  将sched_entity加入到红黑树中 */
 		__enqueue_entity(cfs_rq, se);
 	se->on_rq = 1;
 
@@ -6135,6 +6137,7 @@ static void check_preempt_wakeup(struct rq *rq, struct task_struct *p, int wake_
 	 * prevents us from potentially nominating it as a false LAST_BUDDY
 	 * below.
 	 */
+    /* 在其它地方已经设置了，则直接返回 */
 	if (test_tsk_need_resched(curr))
 		return;
 
@@ -6153,6 +6156,7 @@ static void check_preempt_wakeup(struct rq *rq, struct task_struct *p, int wake_
 	find_matching_se(&se, &pse);
 	update_curr(cfs_rq_of(se));
 	BUG_ON(!pse);
+    /* 子与父进行PK */
 	if (wakeup_preempt_entity(se, pse) == 1) {
 		/*
 		 * Bias pick_next to pick the sched entity that is
