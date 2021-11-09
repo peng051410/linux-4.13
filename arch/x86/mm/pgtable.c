@@ -390,6 +390,7 @@ pgd_t *pgd_alloc(struct mm_struct *mm)
 	 */
 	spin_lock(&pgd_lock);
 
+    /* 拷贝对于 swapper_pg_dir(内核页表的最顶级全局目录页)的引用 */
 	pgd_ctor(mm, pgd);
 	pgd_prepopulate_pmd(mm, pgd, pmds);
 

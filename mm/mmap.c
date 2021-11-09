@@ -178,6 +178,10 @@ static struct vm_area_struct *remove_vma(struct vm_area_struct *vma)
 
 static int do_brk(unsigned long addr, unsigned long len, struct list_head *uf);
 
+/**
+ * brk系统调用的入口函数
+ * @param brk 新的堆顶位置, mm->brk 是原来堆顶的位置
+ */
 SYSCALL_DEFINE1(brk, unsigned long, brk)
 {
 	unsigned long retval;
@@ -217,13 +221,17 @@ SYSCALL_DEFINE1(brk, unsigned long, brk)
 			      mm->end_data, mm->start_data))
 		goto out;
 
+    /* 将新老堆按页地址进行对齐 */
 	newbrk = PAGE_ALIGN(brk);
 	oldbrk = PAGE_ALIGN(mm->brk);
+    /* 增加的内存小，还在一个页内 */
 	if (oldbrk == newbrk)
 		goto set_brk;
 
 	/* Always allow shrinking brk. */
+    /* 要释放内存了，至少释放了一页 */
 	if (brk <= mm->brk) {
+        /* 将这一页的内存映射去掉 */
 		if (!do_munmap(mm, newbrk, oldbrk-newbrk, &uf))
 			goto set_brk;
 		goto out;
@@ -235,6 +243,7 @@ SYSCALL_DEFINE1(brk, unsigned long, brk)
 		goto out;
 
 	/* Ok, looks good - let it rip. */
+    /* 有空间，进行空间分配 */
 	if (do_brk(oldbrk, newbrk-oldbrk, &uf) < 0)
 		goto out;
 
@@ -612,6 +621,7 @@ static void vma_link(struct mm_struct *mm, struct vm_area_struct *vma,
 	}
 
 	__vma_link(mm, vma, prev, rb_link, rb_parent);
+    /* 建立文件到内存的映射关系 */
 	__vma_link_file(vma);
 
 	if (mapping)
@@ -1360,6 +1370,7 @@ unsigned long do_mmap(struct file *file, unsigned long addr,
 	/* Obtain the address to map to. we verify (or select) it and ensure
 	 * that it represents a valid section of the address space.
 	 */
+    /* 找到一个没有映射的区域 */
 	addr = get_unmapped_area(file, addr, len, pgoff, flags);
 	if (offset_in_page(addr))
 		return addr;
@@ -1464,6 +1475,7 @@ unsigned long do_mmap(struct file *file, unsigned long addr,
 			vm_flags |= VM_NORESERVE;
 	}
 
+    /* 映射这个区域 */
 	addr = mmap_region(file, addr, len, vm_flags, pgoff, uf);
 	if (!IS_ERR_VALUE(addr) &&
 	    ((vm_flags & VM_LOCKED) ||
@@ -1481,6 +1493,7 @@ SYSCALL_DEFINE6(mmap_pgoff, unsigned long, addr, unsigned long, len,
 
 	if (!(flags & MAP_ANONYMOUS)) {
 		audit_mmap_fd(fd, flags);
+        /* 根据文件描述符获取struct file */
 		file = fget(fd);
 		if (!file)
 			return -EBADF;
@@ -1644,6 +1657,7 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 	/*
 	 * Can we just expand an old mapping?
 	 */
+    /* 是否可以进行节点合并 */
 	vma = vma_merge(mm, prev, addr, addr + len, vm_flags,
 			NULL, file, pgoff, NULL, NULL_VM_UFFD_CTX);
 	if (vma)
@@ -1654,6 +1668,7 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 	 * specific mapper. the address has already been validated, but
 	 * not unmapped, but the maps are removed from the list.
 	 */
+    /* 不能合并，创建新的mm_area_struct */
 	vma = kmem_cache_zalloc(vm_area_cachep, GFP_KERNEL);
 	if (!vma) {
 		error = -ENOMEM;
@@ -1685,7 +1700,9 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 		 * and map writably if VM_SHARED is set. This usually means the
 		 * new file must not have been exposed to user-space, yet.
 		 */
+        /* 内存映射是文件，则设置vm_file为目标文件 */
 		vma->vm_file = get_file(file);
+        /* 此时文件与内存开始发生关系 */
 		error = call_mmap(file, vma);
 		if (error)
 			goto unmap_and_free_vma;
@@ -1707,6 +1724,7 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 			goto free_vma;
 	}
 
+    /* 将vm_area挂载到mm_struct的红黑树上 */
 	vma_link(mm, vma, prev, rb_link, rb_parent);
 	/* Once vma denies write, undo our temporary denial count */
 	if (file) {
@@ -2082,8 +2100,10 @@ get_unmapped_area(struct file *file, unsigned long addr, unsigned long len,
 	if (len > TASK_SIZE)
 		return -ENOMEM;
 
+    /* 匿名映射，实际调用的是arch_get_unmapped_area */
 	get_area = current->mm->get_unmapped_area;
 	if (file) {
+        /* 文件映射，如果为ext4，则调用thp_get_unmapped_area */
 		if (file->f_op->get_unmapped_area)
 			get_area = file->f_op->get_unmapped_area;
 	} else if (flags & MAP_SHARED) {

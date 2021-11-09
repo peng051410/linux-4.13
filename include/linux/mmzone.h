@@ -370,6 +370,7 @@ struct zone {
 	int node;
 #endif
 	struct pglist_data	*zone_pgdat;
+    /* 用于区分冷热页,是否在缓存中 */
 	struct per_cpu_pageset __percpu *pageset;
 
 #ifndef CONFIG_SPARSEMEM
@@ -381,6 +382,7 @@ struct zone {
 #endif /* CONFIG_SPARSEMEM */
 
 	/* zone_start_pfn == zone_start_paddr >> PAGE_SHIFT */
+    /* 当前zone的第一个页 */
 	unsigned long		zone_start_pfn;
 
 	/*
@@ -424,8 +426,10 @@ struct zone {
 	 * adjust_managed_page_count() should be used instead of directly
 	 * touching zone->managed_pages and totalram_pages.
 	 */
+    /* 伙伴系统管理的页数 */
 	unsigned long		managed_pages;
 	unsigned long		spanned_pages;
+    /* 当前zone在物理内存中真正存在的页数 */
 	unsigned long		present_pages;
 
 	const char		*name;
@@ -612,10 +616,14 @@ extern struct page *mem_map;
  */
 struct bootmem_data;
 typedef struct pglist_data {
+    /* 节点区域 */
 	struct zone node_zones[MAX_NR_ZONES];
+    /* 备用节点 */
 	struct zonelist node_zonelists[MAX_ZONELISTS];
+    /* 当前节点区域的数量 */
 	int nr_zones;
 #ifdef CONFIG_FLAT_NODE_MEM_MAP	/* means !SPARSEMEM */
+    /* 节点的page数组 */
 	struct page *node_mem_map;
 #ifdef CONFIG_PAGE_EXTENSION
 	struct page_ext *node_page_ext;
@@ -637,10 +645,14 @@ typedef struct pglist_data {
 	 */
 	spinlock_t node_size_lock;
 #endif
+    /* 节点的起始页号 */
 	unsigned long node_start_pfn;
+    /* 真正可用物理内存页面数 */
 	unsigned long node_present_pages; /* total number of physical pages */
+    /* 包含的不连续物理地址内存页面数 */
 	unsigned long node_spanned_pages; /* total size of physical page
 					     range, including holes */
+    /* 节点id */
 	int node_id;
 	wait_queue_head_t kswapd_wait;
 	wait_queue_head_t pfmemalloc_wait;

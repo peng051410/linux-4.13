@@ -689,6 +689,7 @@ kernel_physical_mapping_init(unsigned long paddr_start,
 	unsigned long vaddr, vaddr_start, vaddr_end, vaddr_next, paddr_last;
 
 	paddr_last = paddr_end;
+    /* 物理地址转虚拟地址，需要这么做的原因是硬件规定在保护模式下要使用cr3寄存器 */
 	vaddr = (unsigned long)__va(paddr_start);
 	vaddr_end = (unsigned long)__va(paddr_end);
 	vaddr_start = vaddr;

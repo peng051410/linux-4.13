@@ -2224,12 +2224,15 @@ static int page_cache_read(struct file *file, pgoff_t offset, gfp_t gfp_mask)
 	int ret;
 
 	do {
+        /* 分配缓存页 */
 		page = __page_cache_alloc(gfp_mask|__GFP_COLD);
 		if (!page)
 			return -ENOMEM;
 
+        /* 加到LRU */
 		ret = add_to_page_cache_lru(page, mapping, offset, gfp_mask & GFP_KERNEL);
 		if (ret == 0)
+        /* 调用address_space_operations的readpage函数，对于ext4系统，就是调用ext4_readpage */
 			ret = mapping->a_ops->readpage(file, page);
 		else if (ret == -EEXIST)
 			ret = 0; /* losing race to add is OK */
@@ -2350,12 +2353,14 @@ int filemap_fault(struct vm_fault *vmf)
 	/*
 	 * Do we have something in the page cache already?
 	 */
+    /* 查找缓存页 */
 	page = find_get_page(mapping, offset);
 	if (likely(page) && !(vmf->flags & FAULT_FLAG_TRIED)) {
 		/*
 		 * We found the page, so try async readahead before
 		 * waiting for the lock.
 		 */
+        /* 找到页，预读数据到内存 */
 		do_async_mmap_readahead(vmf->vma, ra, file, page, offset);
 	} else if (!page) {
 		/* No page in the page cache at all */

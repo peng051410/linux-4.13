@@ -151,6 +151,7 @@ static struct kmem_cache *task_struct_cachep;
 
 static inline struct task_struct *alloc_task_struct_node(int node)
 {
+    /* 在缓存区域task_struct_cachep分配内存 */
 	return kmem_cache_alloc_node(task_struct_cachep, GFP_KERNEL, node);
 }
 
@@ -451,6 +452,9 @@ static void set_max_threads(unsigned int max_threads_suggested)
 int arch_task_struct_size __read_mostly;
 #endif
 
+/**
+ * 系统初始化，分配task_struct缓存
+ */
 void __init fork_init(void)
 {
 	int i;
@@ -731,6 +735,7 @@ fail_nomem:
 
 static inline int mm_alloc_pgd(struct mm_struct *mm)
 {
+    /* 分配全局页表项 */
 	mm->pgd = pgd_alloc(mm);
 	if (unlikely(!mm->pgd))
 		return -ENOMEM;

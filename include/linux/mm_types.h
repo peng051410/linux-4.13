@@ -42,6 +42,7 @@ struct page {
 	unsigned long flags;		/* Atomic flags, some possibly
 					 * updated asynchronously */
 	union {
+        /* 用于内存映射，一整页方式使用 */
 		struct address_space *mapping;	/* If low bit clear, points to
 						 * inode address_space, or NULL.
 						 * If page mapped as anonymous
@@ -49,14 +50,18 @@ struct page {
 						 * it points to anon_vma object:
 						 * see PAGE_MAPPING_ANON below.
 						 */
+        /* 已经分配并使用的第一个对象，小内存分配使用 */
 		void *s_mem;			/* slab first object */
+        /* 多少页表指向这个页，一整页方式使用 */
 		atomic_t compound_mapcount;	/* first tail page */
 		/* page_deferred_list().next	 -- second tail page */
 	};
 
 	/* Second double word */
 	union {
+        /* 在映射区的偏移量，一整页方式使用 */
 		pgoff_t index;		/* Our offset within mapping. */
+        /* 池子中的空闲对象，小内存分配使用 */
 		void *freelist;		/* sl[aou]b first free object */
 		/* page_deferred_list().prev	-- second tail page */
 	};
@@ -112,6 +117,7 @@ struct page {
 	 * avoid collision and false-positive PageTail().
 	 */
 	union {
+        /* 这一页应该在链表上，如换出链表，一整页方式使用 */
 		struct list_head lru;	/* Pageout list, eg. active_list
 					 * protected by zone_lru_lock !
 					 * Can be used as a generic list
@@ -133,9 +139,11 @@ struct page {
 #endif
 		};
 
+        /* 需要释放的列表，小内存分配使用 */
 		struct rcu_head rcu_head;	/* Used by SLAB
 						 * when destroying via RCU
 						 */
+        /* 用于复合页，把连续的两个或多个看做一个页 */
 		/* Tail pages of compound page */
 		struct {
 			unsigned long compound_head; /* If bit zero is set */
@@ -284,6 +292,7 @@ struct vm_userfaultfd_ctx {};
 struct vm_area_struct {
 	/* The first cache line has the info for VMA tree walking. */
 
+    /* 该区域在用户空间的起始地址与结束地址 */
 	unsigned long vm_start;		/* Our start address within vm_mm. */
 	unsigned long vm_end;		/* The first byte after our end address
 					   within vm_mm. */
@@ -324,14 +333,17 @@ struct vm_area_struct {
 	 */
 	struct list_head anon_vma_chain; /* Serialized by mmap_sem &
 					  * page_table_lock */
+    /* 匿名映射，指映射到物理内存 */
 	struct anon_vma *anon_vma;	/* Serialized by page_table_lock */
 
 	/* Function pointers to deal with this struct. */
+    /* 对内存区域可以做的操作 */
 	const struct vm_operations_struct *vm_ops;
 
 	/* Information about our backing store: */
 	unsigned long vm_pgoff;		/* Offset (within vm_file) in PAGE_SIZE
 					   units */
+    /* 映射到文件 */
 	struct file * vm_file;		/* File we map to (can be NULL). */
 	void * vm_private_data;		/* was vm_pte (shared mem) */
 
@@ -365,6 +377,7 @@ struct mm_struct {
 				unsigned long addr, unsigned long len,
 				unsigned long pgoff, unsigned long flags);
 #endif
+    /* 用于内存映射的起始位置，从高到低增长 */
 	unsigned long mmap_base;		/* base of mmap area */
 	unsigned long mmap_legacy_base;         /* base of mmap area in bottom-up allocations */
 #ifdef CONFIG_HAVE_ARCH_COMPAT_MMAP_BASES
@@ -372,6 +385,7 @@ struct mm_struct {
 	unsigned long mmap_compat_base;
 	unsigned long mmap_compat_legacy_base;
 #endif
+    /* 用户态与内核态空间的分配大小 */
 	unsigned long task_size;		/* size of task vm space */
 	unsigned long highest_vm_end;		/* highest vma end address */
 	pgd_t * pgd;
@@ -414,15 +428,24 @@ struct mm_struct {
 	unsigned long hiwater_rss;	/* High-watermark of RSS usage */
 	unsigned long hiwater_vm;	/* High-water virtual memory usage */
 
+    /* 总共映射的页数 */
 	unsigned long total_vm;		/* Total pages mapped */
+    /* 被锁定，不能被换出 */
 	unsigned long locked_vm;	/* Pages that have PG_mlocked set */
+    /* 不能换出也不能移动 */
 	unsigned long pinned_vm;	/* Refcount permanently increased */
+    /* 放数据的页的数目  */
 	unsigned long data_vm;		/* VM_WRITE & ~VM_SHARED & ~VM_STACK */
+    /* 放可执行文件的页的数目  */
 	unsigned long exec_vm;		/* VM_EXEC & ~VM_WRITE & ~VM_STACK */
+    /* 栈所占的页的数目 */
 	unsigned long stack_vm;		/* VM_STACK */
 	unsigned long def_flags;
+    /* 可执行代码的开始与结束位置，已初始化数据的开始与结束位置 */
 	unsigned long start_code, end_code, start_data, end_data;
+    /* 堆的起始位置，当前堆的位置，栈的起始位置 */
 	unsigned long start_brk, brk, start_stack;
+    /* 参数列表的位置，环境变量的位置 */
 	unsigned long arg_start, arg_end, env_start, env_end;
 
 	unsigned long saved_auxv[AT_VECTOR_SIZE]; /* for /proc/PID/auxv */

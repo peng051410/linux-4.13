@@ -38,6 +38,7 @@ void *kmap_atomic_prot(struct page *page, pgprot_t prot)
 	preempt_disable();
 	pagefault_disable();
 
+    /* 如果是64位没有高端地址` */
 	if (!PageHighMem(page))
 		return page_address(page);
 
@@ -45,6 +46,7 @@ void *kmap_atomic_prot(struct page *page, pgprot_t prot)
 	idx = type + KM_TYPE_NR*smp_processor_id();
 	vaddr = __fix_to_virt(FIX_KMAP_BEGIN + idx);
 	BUG_ON(!pte_none(*(kmap_pte-idx)));
+    /* 通过内核页表进行临时映射 */
 	set_pte(kmap_pte-idx, mk_pte(page, prot));
 	arch_flush_lazy_mmu_mode();
 

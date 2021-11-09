@@ -2729,8 +2729,10 @@ int do_swap_page(struct vm_fault *vmf)
 		goto out;
 	}
 	delayacct_set_flag(DELAYACCT_PF_SWAPIN);
+    /* 查找缓存页 */
 	page = lookup_swap_cache(entry);
 	if (!page) {
+        /* 没有，则读文件进来，形成内存页 */
 		page = swapin_readahead(entry, GFP_HIGHUSER_MOVABLE, vma,
 					vmf->address);
 		if (!page) {
@@ -2911,6 +2913,7 @@ static int do_anonymous_page(struct vm_fault *vmf)
 	 *
 	 * Here we only have down_read(mmap_sem).
 	 */
+    /* 分配页表项 */
 	if (pte_alloc(vma->vm_mm, vmf->pmd, vmf->address))
 		return VM_FAULT_OOM;
 
@@ -2941,6 +2944,7 @@ static int do_anonymous_page(struct vm_fault *vmf)
 	/* Allocate our own private page. */
 	if (unlikely(anon_vma_prepare(vma)))
 		goto oom;
+    /* 分配页 */
 	page = alloc_zeroed_user_highpage_movable(vma, vmf->address);
 	if (!page)
 		goto oom;
@@ -2955,6 +2959,7 @@ static int do_anonymous_page(struct vm_fault *vmf)
 	 */
 	__SetPageUptodate(page);
 
+    /* 将页表指向新分配的物理页 */
 	entry = mk_pte(page, vma->vm_page_prot);
 	if (vma->vm_flags & VM_WRITE)
 		entry = pte_mkwrite(pte_mkdirty(entry));
@@ -2981,6 +2986,7 @@ static int do_anonymous_page(struct vm_fault *vmf)
 	mem_cgroup_commit_charge(page, memcg, false, false);
 	lru_cache_add_active_or_unevictable(page, vma);
 setpte:
+    /* 页表项放到页表里 */
 	set_pte_at(vma->vm_mm, vmf->address, vmf->pte, entry);
 
 	/* No need to invalidate - it was non-present before */
@@ -3008,6 +3014,7 @@ static int __do_fault(struct vm_fault *vmf)
 	struct vm_area_struct *vma = vmf->vma;
 	int ret;
 
+    /* 如果是ext4系统，则调用ext4_filemap_fault */
 	ret = vma->vm_ops->fault(vmf);
 	if (unlikely(ret & (VM_FAULT_ERROR | VM_FAULT_NOPAGE | VM_FAULT_RETRY |
 			    VM_FAULT_DONE_COW)))
@@ -3745,12 +3752,15 @@ static int handle_pte_fault(struct vm_fault *vmf)
 	}
 
 	if (!vmf->pte) {
+        /* 匿名页 */
 		if (vma_is_anonymous(vmf->vma))
 			return do_anonymous_page(vmf);
 		else
+        /* 文件 */
 			return do_fault(vmf);
 	}
 
+    /* 在物理内存存在，就换回来 */
 	if (!pte_present(vmf->orig_pte))
 		return do_swap_page(vmf);
 
@@ -3807,11 +3817,13 @@ static int __handle_mm_fault(struct vm_area_struct *vma, unsigned long address,
 	p4d_t *p4d;
 	int ret;
 
+    /* 全局页目录项  */
 	pgd = pgd_offset(mm, address);
 	p4d = p4d_alloc(mm, pgd, address);
 	if (!p4d)
 		return VM_FAULT_OOM;
 
+    /* 上层页目录项 */
 	vmf.pud = pud_alloc(mm, p4d, address);
 	if (!vmf.pud)
 		return VM_FAULT_OOM;
@@ -3839,6 +3851,7 @@ static int __handle_mm_fault(struct vm_area_struct *vma, unsigned long address,
 		}
 	}
 
+    /* 中间页目录项 */
 	vmf.pmd = pmd_alloc(mm, vmf.pud, address);
 	if (!vmf.pmd)
 		return VM_FAULT_OOM;
@@ -3866,6 +3879,7 @@ static int __handle_mm_fault(struct vm_area_struct *vma, unsigned long address,
 		}
 	}
 
+    /* 直接页表项 */
 	return handle_pte_fault(&vmf);
 }
 

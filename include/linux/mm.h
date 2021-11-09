@@ -1033,6 +1033,7 @@ static inline struct mem_cgroup *page_memcg_rcu(struct page *page)
 
 static __always_inline void *lowmem_page_address(const struct page *page)
 {
+    /* 直接使用__VA进行临时映射 */
 	return page_to_virt(page);
 }
 

@@ -711,6 +711,7 @@ int setup_arg_pages(struct linux_binprm *bprm,
 	stack_base = PAGE_ALIGN(stack_top - stack_base);
 
 	stack_shift = vma->vm_start - stack_base;
+    /* arg_start指向栈底 */
 	mm->arg_start = bprm->p - stack_shift;
 	bprm->p = vma->vm_end - stack_shift;
 #else

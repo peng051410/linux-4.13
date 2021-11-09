@@ -134,6 +134,7 @@ void switch_mm_irqs_off(struct mm_struct *prev, struct mm_struct *next,
 	 * Fortunately, load_cr3() is serializing and gives the
 	 * ordering guarantee we need.
 	 */
+    /* cr3寄存器指向当前进程的顶级pgd，此为硬件要求；cr3中存放的pgd在物理内存的地址 */
 	load_cr3(next->pgd);
 
 	/*

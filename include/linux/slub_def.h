@@ -38,10 +38,13 @@ enum stat_item {
 	NR_SLUB_STAT_ITEMS };
 
 struct kmem_cache_cpu {
+    /* 大内存块第一个空闲的项 */
 	void **freelist;	/* Pointer to next available object */
 	unsigned long tid;	/* Globally unique transaction id */
+    /* 指向大内存的第一个页 */
 	struct page *page;	/* The slab from which we are allocating */
 #ifdef CONFIG_SLUB_CPU_PARTIAL
+    /* 也指向第一个页，不过里面一部分被分配出去了 */
 	struct page *partial;	/* Partially allocated frozen slabs */
 #endif
 #ifdef CONFIG_SLUB_STATS
@@ -79,6 +82,7 @@ struct kmem_cache_order_objects {
  * Slab cache management.
  */
 struct kmem_cache {
+    /* CPU快速通道 */
 	struct kmem_cache_cpu __percpu *cpu_slab;
 	/* Used for retriving partial slabs etc */
 	unsigned long flags;
@@ -102,6 +106,7 @@ struct kmem_cache {
 	int reserved;		/* Reserved bytes at the end of slabs */
 	int red_left_pad;	/* Left redzone padding size */
 	const char *name;	/* Name (only for display!) */
+    /* 管理的struct链表 */
 	struct list_head list;	/* List of slab caches */
 #ifdef CONFIG_SYSFS
 	struct kobject kobj;	/* For sysfs */
@@ -130,6 +135,7 @@ struct kmem_cache {
 	struct kasan_cache kasan_info;
 #endif
 
+    /* 普通通道 */
 	struct kmem_cache_node *node[MAX_NUMNODES];
 };
 

@@ -327,6 +327,7 @@ void vmalloc_sync_all(void)
  *
  *   Handle a fault on the vmalloc or module mapping area
  */
+/* 主要用于关联内核页表项 */
 static noinline int vmalloc_fault(unsigned long address)
 {
 	unsigned long pgd_paddr;
@@ -1296,8 +1297,10 @@ __do_page_fault(struct pt_regs *regs, unsigned long error_code,
 	 * (error_code & 4) == 0, and that the fault was not a
 	 * protection error (error_code & 9) == 0.
 	 */
+    /* 判断中断是否发生在内核 */
 	if (unlikely(fault_in_kernel_space(address))) {
 		if (!(error_code & (PF_RSVD | PF_USER | PF_PROT))) {
+            /* 内核vmalloc缺页 */
 			if (vmalloc_fault(address) >= 0)
 				return;
 

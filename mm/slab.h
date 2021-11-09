@@ -468,6 +468,7 @@ struct kmem_cache_node {
 
 #ifdef CONFIG_SLUB
 	unsigned long nr_partial;
+    /* 部分空闲块，为kmem_cache_cpu中partial的备用列表 */
 	struct list_head partial;
 #ifdef CONFIG_SLUB_DEBUG
 	atomic_long_t nr_slabs;

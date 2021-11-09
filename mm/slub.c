@@ -1556,6 +1556,7 @@ static struct page *allocate_slab(struct kmem_cache *s, gfp_t flags, int node)
 		 * Allocation may have failed due to fragmentation.
 		 * Try a lower order alloc if possible
 		 */
+        /* 内存吃紧，尝试分配小Order的内存 */
 		page = alloc_slab_page(s, alloc_gfp, node, oo);
 		if (unlikely(!page))
 			goto out;
@@ -1815,6 +1816,7 @@ static void *get_partial_node(struct kmem_cache *s, struct kmem_cache_node *n,
 		if (!pfmemalloc_match(page, flags))
 			continue;
 
+        /* 从cache_node的partial中取出一大块内存 */
 		t = acquire_slab(s, n, page, object == NULL, &objects);
 		if (!t)
 			break;
@@ -1825,6 +1827,7 @@ static void *get_partial_node(struct kmem_cache *s, struct kmem_cache_node *n,
 			stat(s, ALLOC_FROM_PARTIAL);
 			object = t;
 		} else {
+            /* 第一次会执行到这，从cache_cpu中page取下来内存 */
 			put_cpu_partial(s, page, 0);
 			stat(s, CPU_PARTIAL_NODE);
 		}
@@ -2420,6 +2423,7 @@ static inline void *new_slab_objects(struct kmem_cache *s, gfp_t flags,
 	if (freelist)
 		return freelist;
 
+    /* 还是没有空闲内存，只能进行slab的分配 */
 	page = new_slab(s, flags, node);
 	if (page) {
 		c = raw_cpu_ptr(s->cpu_slab);
@@ -2538,6 +2542,7 @@ redo:
 	}
 
 	/* must check again c->freelist in case of cpu migration or IRQ */
+    /* 重新检查 */
 	freelist = c->freelist;
 	if (freelist)
 		goto load_freelist;
@@ -2566,12 +2571,14 @@ load_freelist:
 new_slab:
 
 	if (slub_percpu_partial(c)) {
+        /* 看一下cache_cpu里面的partial有没有空间，如果不为空，就将page替换为partial内存 */
 		page = c->page = slub_percpu_partial(c);
 		slub_set_percpu_partial(c, page);
 		stat(s, CPU_PARTIAL_ALLOC);
 		goto redo;
 	}
 
+    /* 到这只能分配对象了 */
 	freelist = new_slab_objects(s, gfpflags, node, &c);
 
 	if (unlikely(!freelist)) {
@@ -2671,10 +2678,11 @@ redo:
 	 * occurs on the right processor and that there was no operation on the
 	 * linked list in between.
 	 */
-
+    /* 取出cache free列表中第一个空闲项 */
 	object = c->freelist;
 	page = c->page;
 	if (unlikely(!object || !node_match(page, node))) {
+        /* 进行普通通道分配 */
 		object = __slab_alloc(s, gfpflags, node, addr, c);
 		stat(s, ALLOC_SLOWPATH);
 	} else {

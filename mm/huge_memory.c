@@ -516,6 +516,7 @@ unsigned long __thp_get_unmapped_area(struct file *filp, unsigned long len,
 	if (len_pad < len || (off + len_pad) < off)
 		return 0;
 
+    /* 最终还是调用了mm_struct中的get_unmapped_area */
 	addr = current->mm->get_unmapped_area(filp, 0, len_pad,
 					      off >> PAGE_SHIFT, flags);
 	if (IS_ERR_VALUE(addr))
