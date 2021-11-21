@@ -747,6 +747,7 @@ static int do_dentry_open(struct file *f,
 		goto cleanup_all;
 
 	if (!open)
+    /* 调用ext4的file_open */
 		open = f->f_op->open;
 	if (open) {
 		error = open(inode, f);
@@ -765,6 +766,7 @@ static int do_dentry_open(struct file *f,
 	f->f_write_hint = WRITE_LIFE_NOT_SET;
 	f->f_flags &= ~(O_CREAT | O_EXCL | O_NOCTTY | O_TRUNC);
 
+    /* 将得到的文件信息填充到struct file中 */
 	file_ra_state_init(&f->f_ra, f->f_mapping->host->i_mapping);
 
 	return 0;
@@ -1054,14 +1056,17 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 	if (IS_ERR(tmp))
 		return PTR_ERR(tmp);
 
+    /* 获取一个没有使用的描述符 */
 	fd = get_unused_fd_flags(flags);
 	if (fd >= 0) {
+        /* 创建struct file结构 */
 		struct file *f = do_filp_open(dfd, tmp, &op);
 		if (IS_ERR(f)) {
 			put_unused_fd(fd);
 			fd = PTR_ERR(f);
 		} else {
 			fsnotify_open(f);
+            /* 将文件描述符与文件结构关联起来 */
 			fd_install(fd, f);
 		}
 	}

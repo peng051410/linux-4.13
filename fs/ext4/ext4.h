@@ -367,6 +367,7 @@ struct flex_groups {
 #define	EXT4_IND_BLOCK			EXT4_NDIR_BLOCKS
 #define	EXT4_DIND_BLOCK			(EXT4_IND_BLOCK + 1)
 #define	EXT4_TIND_BLOCK			(EXT4_DIND_BLOCK + 1)
+/* ext4的块定义，一共15项 *
 #define	EXT4_N_BLOCKS			(EXT4_TIND_BLOCK + 1)
 
 /*
@@ -717,8 +718,10 @@ struct fsxattr {
  * Structure of an inode on the disk
  */
 struct ext4_inode {
+    /* 文件权限 */
 	__le16	i_mode;		/* File mode */
 	__le16	i_uid;		/* Low 16 bits of Owner Uid */
+    /* 文件大小 */
 	__le32	i_size_lo;	/* Size in bytes */
 	__le32	i_atime;	/* Access time */
 	__le32	i_ctime;	/* Inode Change time */
@@ -726,6 +729,7 @@ struct ext4_inode {
 	__le32	i_dtime;	/* Deletion Time */
 	__le16	i_gid;		/* Low 16 bits of Group Id */
 	__le16	i_links_count;	/* Links count */
+    /* 占用了多少块 */
 	__le32	i_blocks_lo;	/* Blocks count */
 	__le32	i_flags;	/* File flags */
 	union {
@@ -1216,6 +1220,7 @@ extern void ext4_set_bits(void *bm, int cur, int len);
 /*
  * Structure of the super block
  */
+/* 超级块 */
 struct ext4_super_block {
 /*00*/	__le32	s_inodes_count;		/* Inodes count */
 	__le32	s_blocks_count_lo;	/* Blocks count */

@@ -3110,6 +3110,7 @@ static int lookup_open(struct nameidata *nd, struct path *path,
 	dentry = d_lookup(dir, &nd->last);
 	for (;;) {
 		if (!dentry) {
+            /* 创建新的dentry */
 			dentry = d_alloc_parallel(dir, &nd->last, &wq);
 			if (IS_ERR(dentry))
 				return PTR_ERR(dentry);
@@ -3176,6 +3177,7 @@ static int lookup_open(struct nameidata *nd, struct path *path,
 
 no_open:
 	if (d_in_lookup(dentry)) {
+        /* 调用上级目录inode的inode_operation,ext4就是ext4_lookup*/
 		struct dentry *res = dir_inode->i_op->lookup(dir_inode, dentry,
 							     nd->flags);
 		d_lookup_done(dentry);
@@ -3197,6 +3199,7 @@ no_open:
 			error = -EACCES;
 			goto out_dput;
 		}
+        /* 创建新的inode节点 */
 		error = dir_inode->i_op->create(dir_inode, dentry, mode,
 						open_flag & O_EXCL);
 		if (error)
@@ -3247,6 +3250,7 @@ static int do_last(struct nameidata *nd,
 	if (!(open_flag & O_CREAT)) {
 		if (nd->last.name[nd->last.len])
 			nd->flags |= LOOKUP_FOLLOW | LOOKUP_DIRECTORY;
+        /* 先从缓存中找 */
 		/* we _can_ be in RCU mode here */
 		error = lookup_fast(nd, &path, &inode, &seq);
 		if (likely(error > 0))
@@ -3288,6 +3292,7 @@ static int do_last(struct nameidata *nd,
 		inode_lock(dir->d_inode);
 	else
 		inode_lock_shared(dir->d_inode);
+    /* 缓存中未找到，准备进行创建 */
 	error = lookup_open(nd, &path, file, op, got_write, opened);
 	if (open_flag & O_CREAT)
 		inode_unlock(dir->d_inode);
@@ -3376,6 +3381,7 @@ finish_open_created:
 	if (error)
 		goto out;
 	BUG_ON(*opened & FILE_OPENED); /* once it's opened, it's opened */
+    /* 真正打开文件 */
 	error = vfs_open(&nd->path, file, current_cred());
 	if (error)
 		goto out;
@@ -3493,6 +3499,7 @@ static struct file *path_openat(struct nameidata *nd,
 	int opened = 0;
 	int error;
 
+    /* 生成一个struct file结构 */
 	file = get_empty_filp();
 	if (IS_ERR(file))
 		return file;
@@ -3511,12 +3518,15 @@ static struct file *path_openat(struct nameidata *nd,
 		goto out2;
 	}
 
+    /* 初始化nameidata,准备开始路径节点查找 */
 	s = path_init(nd, flags);
 	if (IS_ERR(s)) {
 		put_filp(file);
 		return ERR_CAST(s);
 	}
+    /* 逐层对路径进行查找 */
 	while (!(error = link_path_walk(s, nd)) &&
+           /* 获取文件对应的inode并初始化file对象 */
 		(error = do_last(nd, file, op, &opened)) > 0) {
 		nd->flags &= ~(LOOKUP_OPEN|LOOKUP_CREATE|LOOKUP_EXCL);
 		s = trailing_symlink(nd);
@@ -3550,6 +3560,7 @@ struct file *do_filp_open(int dfd, struct filename *pathname,
 	int flags = op->lookup_flags;
 	struct file *filp;
 
+    /* 初始化nameidata，这个结构在解析与查找路径时辅助 */
 	set_nameidata(&nd, dfd, pathname);
 	filp = path_openat(&nd, op, flags | LOOKUP_RCU);
 	if (unlikely(filp == ERR_PTR(-ECHILD)))

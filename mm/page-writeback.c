@@ -1667,6 +1667,7 @@ static void balance_dirty_pages(struct address_space *mapping,
 		}
 
 		if (unlikely(!writeback_in_progress(wb)))
+        /* 启动线程开始回写 */
 			wb_start_background_writeback(wb);
 
 		/*
@@ -1910,6 +1911,7 @@ void balance_dirty_pages_ratelimited(struct address_space *mapping)
 	preempt_enable();
 
 	if (unlikely(current->nr_dirtied >= ratelimit))
+    /* 脏页超过了 */
 		balance_dirty_pages(mapping, wb, current->nr_dirtied);
 
 	wb_put(wb);

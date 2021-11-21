@@ -918,6 +918,7 @@ got_group:
 		}
 
 repeat_in_this_group:
+        /* 查找下一个为0(空闲)的地方 */
 		ino = ext4_find_next_zero_bit((unsigned long *)
 					      inode_bitmap_bh->b_data,
 					      EXT4_INODES_PER_GROUP(sb), ino);
@@ -1211,6 +1212,7 @@ struct inode *ext4_orphan_get(struct super_block *sb, unsigned long ino)
 
 	block_group = (ino - 1) / EXT4_INODES_PER_GROUP(sb);
 	bit = (ino - 1) % EXT4_INODES_PER_GROUP(sb);
+    /* 读inode位图 */
 	bitmap_bh = ext4_read_inode_bitmap(sb, block_group);
 	if (IS_ERR(bitmap_bh)) {
 		ext4_error(sb, "inode bitmap error %ld for orphan %lu",

@@ -1269,12 +1269,14 @@ static int ext4_write_begin(struct file *file, struct address_space *mapping,
 	 * the page (if needed) without using GFP_NOFS.
 	 */
 retry_grab:
+    /* 获取应该写入的缓存页 */
 	page = grab_cache_page_write_begin(mapping, index, flags);
 	if (!page)
 		return -ENOMEM;
 	unlock_page(page);
 
 retry_journal:
+    /* 做日志相关工作 */
 	handle = ext4_journal_start(inode, EXT4_HT_WRITE_PAGE, needed_blocks);
 	if (IS_ERR(handle)) {
 		put_page(page);
@@ -1325,6 +1327,7 @@ retry_journal:
 		if (pos + len > inode->i_size && ext4_can_truncate(inode))
 			ext4_orphan_add(handle, inode);
 
+        /* 完成日志写入 */
 		ext4_journal_stop(handle);
 		if (pos + len > inode->i_size) {
 			ext4_truncate_failed_write(inode);
@@ -1418,6 +1421,7 @@ static int ext4_write_end(struct file *file,
 		 */
 		ext4_orphan_add(handle, inode);
 errout:
+    /* 完成日志写入 */
 	ret2 = ext4_journal_stop(handle);
 	if (!ret)
 		ret = ret2;

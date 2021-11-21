@@ -28,6 +28,7 @@ DEFINE_SPINLOCK(bdi_lock);
 LIST_HEAD(bdi_list);
 
 /* bdi_wq serves all asynchronous writeback tasks */
+/* 全局变量，所有的回写任务都挂到这个队列上 */
 struct workqueue_struct *bdi_wq;
 
 #ifdef CONFIG_DEBUG_FS
@@ -287,6 +288,9 @@ void wb_wakeup_delayed(struct bdi_writeback *wb)
  */
 #define INIT_BW		(100 << (20 - PAGE_SHIFT))
 
+/*
+ * 在初始化设备时进行初始化
+ */
 static int wb_init(struct bdi_writeback *wb, struct backing_dev_info *bdi,
 		   int blkcg_id, gfp_t gfp)
 {

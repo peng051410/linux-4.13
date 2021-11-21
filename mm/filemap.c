@@ -2180,6 +2180,7 @@ generic_file_read_iter(struct kiocb *iocb, struct iov_iter *iter)
 
 		file_accessed(file);
 
+        /* 将数据直接赢取硬盘 */
 		retval = mapping->a_ops->direct_IO(iocb, iter);
 		if (retval >= 0) {
 			iocb->ki_pos += retval;
@@ -2974,6 +2975,7 @@ again:
 			break;
 		}
 
+        /* 做准备工作，调用ext4的ext4_write_begin  */
 		status = a_ops->write_begin(file, mapping, pos, bytes, flags,
 						&page, &fsdata);
 		if (unlikely(status < 0))
@@ -2982,9 +2984,11 @@ again:
 		if (mapping_writably_mapped(mapping))
 			flush_dcache_page(page);
 
+        /* 拷贝用户态内容到内核态 */
 		copied = iov_iter_copy_from_user_atomic(page, i, offset, bytes);
 		flush_dcache_page(page);
 
+        /* 完成写操作 */
 		status = a_ops->write_end(file, mapping, pos, bytes, copied,
 						page, fsdata);
 		if (unlikely(status < 0))
@@ -3010,6 +3014,7 @@ again:
 		pos += copied;
 		written += copied;
 
+        /* 最后检查脏页，是否可以写入磁盘 */
 		balance_dirty_pages_ratelimited(mapping);
 	} while (iov_iter_count(i));
 

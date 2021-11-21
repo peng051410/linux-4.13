@@ -96,8 +96,10 @@ struct ext4_extent_idx {
  */
 struct ext4_extent_header {
 	__le16	eh_magic;	/* probably will support different formats */
+    /* 节点有多少项，项分为两种，一种为数据结点ext4_extent，一种为索引节点ext4_extent_idx */
 	__le16	eh_entries;	/* number of valid entries */
 	__le16	eh_max;		/* capacity of store in entries */
+    /* 值为0表示叶子节点 */
 	__le16	eh_depth;	/* has tree real underlying blocks? */
 	__le32	eh_generation;	/* generation of the tree */
 };
