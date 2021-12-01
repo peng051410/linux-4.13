@@ -186,6 +186,7 @@ void __init native_init_IRQ(void)
 #endif
 	for_each_clear_bit_from(i, used_vectors, first_system_vector) {
 		/* IA32_SYSCALL_VECTOR could be used in trap_init already. */
+        /* 从第32位开始，没有设置为1的进行处理 */
 		set_intr_gate(i, irq_entries_start +
 				8 * (i - FIRST_EXTERNAL_VECTOR));
 	}

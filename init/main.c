@@ -565,6 +565,7 @@ asmlinkage __visible void __init start_kernel(void)
 	pidhash_init();
 	vfs_caches_init_early();
 	sort_main_extable();
+    /* 中断向量初始化 */
 	trap_init();
 	mm_init();
 
@@ -604,6 +605,7 @@ asmlinkage __visible void __init start_kernel(void)
 	context_tracking_init();
 	/* init some links before init_ISA_irqs() */
 	early_irq_init();
+    /* 初始化其它设备中断 */
 	init_IRQ();
 	tick_init();
 	rcu_init_nohz();

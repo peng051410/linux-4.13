@@ -102,6 +102,9 @@ static void free_apic_chip_data(struct apic_chip_data *data)
 	}
 }
 
+/*
+ * 将虚拟中断irq分配到某个CPU上的中断向量
+ */
 static int __assign_irq_vector(int irq, struct apic_chip_data *d,
 			       const struct cpumask *mask,
 			       struct irq_data *irqdata)
@@ -189,6 +192,7 @@ next:
 		if (d->cfg.vector)
 			cpumask_copy(d->old_domain, d->domain);
 		for_each_cpu(new_cpu, vector_searchmask)
+            /* 找到某个向量，则将此向量对应的irq_desc设置为虚拟信号对应irq对应的结构irq_to_desc */
 			per_cpu(vector_irq, new_cpu)[vector] = irq_to_desc(irq);
 		goto update;
 

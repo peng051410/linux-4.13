@@ -2172,6 +2172,7 @@ static struct inode *shmem_get_inode(struct super_block *sb, const struct inode 
 		switch (mode & S_IFMT) {
 		default:
 			inode->i_op = &shmem_special_inode_operations;
+            /* 两种实现都调用这个函数 */
 			init_special_inode(inode, mode, dev);
 			break;
 		case S_IFREG:

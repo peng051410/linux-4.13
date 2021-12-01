@@ -680,14 +680,17 @@ int do_vfs_ioctl(struct file *filp, unsigned int fd, unsigned int cmd,
 
 	default:
 		if (S_ISREG(inode->i_mode))
+        /* 文件操作 */
 			error = file_ioctl(filp, cmd, arg);
 		else
+        /* 其它调用 */
 			error = vfs_ioctl(filp, cmd, arg);
 		break;
 	}
 	return error;
 }
 
+/* cmd的组成很复杂 */
 SYSCALL_DEFINE3(ioctl, unsigned int, fd, unsigned int, cmd, unsigned long, arg)
 {
 	int error;

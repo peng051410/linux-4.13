@@ -317,6 +317,7 @@ static ssize_t lp_write(struct file * file, const char __user * buf,
 	if (mutex_lock_interruptible(&lp_table[minor].port_mutex))
 		return -EINTR;
 
+    /* 将数据从用户态的拷贝到内核态 */
 	if (copy_from_user (kbuf, buf, copy_size)) {
 		retv = -EFAULT;
 		goto out_unlock;
@@ -336,6 +337,7 @@ static ssize_t lp_write(struct file * file, const char __user * buf,
 	if ((retv = lp_wait_ready (minor, nonblock)) == 0)
 	do {
 		/* Write the data. */
+        /* 写入外部设备 */
 		written = parport_write (port, kbuf, copy_size);
 		if (written > 0) {
 			copy_size -= written;
@@ -376,9 +378,11 @@ static ssize_t lp_write(struct file * file, const char __user * buf,
 			  = lp_negotiate (port, 
 					  lp_table[minor].best_mode);
 
+            /* 可以被抢占 */
 		} else if (need_resched())
 			schedule ();
 
+        /* 写不完接着写 */
 		if (count) {
 			copy_size = count;
 			if (copy_size > LP_BUFFER_SIZE)
@@ -572,6 +576,7 @@ static int lp_release(struct inode * inode, struct file * file)
 	return 0;
 }
 
+/* 根据cmd命令做不同的工作 */
 static int lp_do_ioctl(unsigned int minor, unsigned int cmd,
 	unsigned long arg, void __user *argp)
 {
@@ -977,6 +982,7 @@ static int __init lp_init (void)
 		lp_table[i].timeout = 10 * HZ;
 	}
 
+    /* 注册字符设备 */
 	if (register_chrdev (LP_MAJOR, "lp", &lp_fops)) {
 		printk (KERN_ERR "lp: unable to get major %d\n", LP_MAJOR);
 		return -EIO;

@@ -978,6 +978,7 @@ void __init trap_init(void)
 	early_iounmap(p, 4);
 #endif
 
+    /* 设置前32个系统中断 */
 	set_intr_gate(X86_TRAP_DE, divide_error);
 	set_intr_gate_ist(X86_TRAP_NMI, &nmi, NMI_STACK);
 	/* int4 can be called from all */
@@ -1004,10 +1005,12 @@ void __init trap_init(void)
 	set_intr_gate(X86_TRAP_XF, simd_coprocessor_error);
 
 	/* Reserve all the builtin and the syscall vector: */
+    /* 循环设置为1，表示设置过中断处理函数了 */
 	for (i = 0; i < FIRST_EXTERNAL_VECTOR; i++)
 		set_bit(i, used_vectors);
 
 #ifdef CONFIG_IA32_EMULATION
+    /* 设置32位系统调用的中断 */
 	set_system_intr_gate(IA32_SYSCALL_VECTOR, entry_INT80_compat);
 	set_bit(IA32_SYSCALL_VECTOR, used_vectors);
 #endif

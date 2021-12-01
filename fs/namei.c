@@ -3716,6 +3716,7 @@ int vfs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 	if (error)
 		return error;
 
+    /* 调用对应系统的inode_operations */
 	error = dir->i_op->mknod(dir, dentry, mode, dev);
 	if (!error)
 		fsnotify_create(dir, dentry);
@@ -3752,6 +3753,7 @@ SYSCALL_DEFINE4(mknodat, int, dfd, const char __user *, filename, umode_t, mode,
 	if (error)
 		return error;
 retry:
+    /* 为新的设备文件创建dentry */
 	dentry = user_path_create(dfd, filename, &path, lookup_flags);
 	if (IS_ERR(dentry))
 		return PTR_ERR(dentry);

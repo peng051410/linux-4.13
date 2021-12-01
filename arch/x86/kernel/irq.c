@@ -217,6 +217,7 @@ u64 arch_irq_stat(void)
  */
 __visible unsigned int __irq_entry do_IRQ(struct pt_regs *regs)
 {
+    /* 从AX寄存器里面拿到中断向量vector */
 	struct pt_regs *old_regs = set_irq_regs(regs);
 	struct irq_desc * desc;
 	/* high bit used in ret_from_ code  */
@@ -239,6 +240,7 @@ __visible unsigned int __irq_entry do_IRQ(struct pt_regs *regs)
 	/* entering_irq() tells RCU that we're not quiescent.  Check it. */
 	RCU_LOCKDEP_WARN(!rcu_is_watching(), "IRQ failed to wake up RCU");
 
+    /* 根据中断向量vector找到对应的irq_desc */
 	desc = __this_cpu_read(vector_irq[vector]);
 
 	if (!handle_irq(desc, regs)) {

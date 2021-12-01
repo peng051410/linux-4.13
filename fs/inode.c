@@ -1959,11 +1959,13 @@ void __init inode_init(void)
 					0);
 }
 
+/* mknod实现(ramfs,shmem)的共同调用 */
 void init_special_inode(struct inode *inode, umode_t mode, dev_t rdev)
 {
 	inode->i_mode = mode;
 	if (S_ISCHR(mode)) {
 		inode->i_fop = &def_chr_fops;
+        /* i_rdev指向dev_t，可以找到cdev */
 		inode->i_rdev = rdev;
 	} else if (S_ISBLK(mode)) {
 		inode->i_fop = &def_blk_fops;

@@ -74,6 +74,7 @@ MODULE_PARM_DESC(irq, "IRQ number (5=default)");
 
 static struct input_dev *logibm_dev;
 
+/* irq表示信息，是一个整数 */
 static irqreturn_t logibm_interrupt(int irq, void *dev_id)
 {
 	char dx, dy;

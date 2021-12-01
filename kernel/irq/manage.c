@@ -1116,6 +1116,7 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
 	if (!try_module_get(desc->owner))
 		return -ENODEV;
 
+    /* irq_desc已经有了action,则挂载到末端 */
 	new->irq = irq;
 
 	/*
@@ -1154,6 +1155,7 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
 	 * and the interrupt does not nest into another interrupt
 	 * thread.
 	 */
+    /* 指定的单线程处理,创建线程 */
 	if (new->thread_fn && !nested) {
 		ret = setup_irq_thread(new, irq, false);
 		if (ret)
@@ -1385,6 +1387,7 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
 	 * when no hard interrupt wakes the thread up.
 	 */
 	if (new->thread)
+    /* 对创建的线程进行唤醒 */
 		wake_up_process(new->thread);
 	if (new->secondary)
 		wake_up_process(new->secondary->thread);
@@ -1706,6 +1709,7 @@ int request_threaded_irq(unsigned int irq, irq_handler_t handler,
 	    ((irqflags & IRQF_NO_SUSPEND) && (irqflags & IRQF_COND_SUSPEND)))
 		return -EINVAL;
 
+    /* 每个中断都有的描述结构 */
 	desc = irq_to_desc(irq);
 	if (!desc)
 		return -EINVAL;
@@ -1720,6 +1724,7 @@ int request_threaded_irq(unsigned int irq, irq_handler_t handler,
 		handler = irq_default_primary_handler;
 	}
 
+    /* 分配了一个irqaction */
 	action = kzalloc(sizeof(struct irqaction), GFP_KERNEL);
 	if (!action)
 		return -ENOMEM;

@@ -251,18 +251,22 @@ int __register_chrdev(unsigned int major, unsigned int baseminor,
 	struct cdev *cdev;
 	int err = -ENOMEM;
 
+    /* 注册主设备号与次设备号 */
 	cd = __register_chrdev_region(major, baseminor, count, name);
 	if (IS_ERR(cd))
 		return PTR_ERR(cd);
 
+    /* 分配struct cdev */
 	cdev = cdev_alloc();
 	if (!cdev)
 		goto out2;
 
 	cdev->owner = fops->owner;
+    /* cdev的ops指向这个模块的opertaions */
 	cdev->ops = fops;
 	kobject_set_name(&cdev->kobj, "%s", name);
 
+    /* 将字符设备添加到内核kobj_map中，MKDEV将主次设备号生成一个dev_t整数，然后将dev_t与cdev关联 */
 	err = cdev_add(cdev, MKDEV(cd->major, baseminor), count);
 	if (err)
 		goto out;
@@ -356,11 +360,13 @@ static int chrdev_open(struct inode *inode, struct file *filp)
 	int ret = 0;
 
 	spin_lock(&cdev_lock);
+    /* 查看i_cdev是否已经关联到cdev */
 	p = inode->i_cdev;
 	if (!p) {
 		struct kobject *kobj;
 		int idx;
 		spin_unlock(&cdev_lock);
+        /* 根据dev_t找kobj */
 		kobj = kobj_lookup(cdev_map, inode->i_rdev, &idx);
 		if (!kobj)
 			return -ENXIO;
@@ -370,6 +376,7 @@ static int chrdev_open(struct inode *inode, struct file *filp)
 		   we dropped the lock. */
 		p = inode->i_cdev;
 		if (!p) {
+            /* i_cdev与cdev new 进行关联 */
 			inode->i_cdev = p = new;
 			list_add(&inode->i_devices, &p->list);
 			new = NULL;
@@ -383,12 +390,15 @@ static int chrdev_open(struct inode *inode, struct file *filp)
 		return ret;
 
 	ret = -ENXIO;
+    /* 获取设备操作 */
 	fops = fops_get(p->ops);
 	if (!fops)
 		goto out_cdev_put;
 
+    /* 赋值给文件的ops */
 	replace_fops(filp, fops);
 	if (filp->f_op->open) {
+        /* 真正打开设备 */
 		ret = filp->f_op->open(inode, filp);
 		if (ret)
 			goto out_cdev_put;
