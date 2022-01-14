@@ -1782,6 +1782,7 @@ static const struct pr_ops sd_pr_ops = {
 	.pr_clear	= sd_pr_clear,
 };
 
+/* block_device_operations在驱动层 */
 static const struct block_device_operations sd_fops = {
 	.owner			= THIS_MODULE,
 	.open			= sd_open,

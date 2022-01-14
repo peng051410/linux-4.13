@@ -11,10 +11,14 @@
 struct user_namespace;
 
 struct ipc_ids {
+    /* 当前有多少个ipc */
 	int in_use;
+    /* 用于生成ipc的id */
 	unsigned short seq;
 	struct rw_semaphore rwsem;
+    /* 基数树 */
 	struct idr ipcs_idr;
+    /* 用于生成ipc的id */
 	int next_id;
 };
 

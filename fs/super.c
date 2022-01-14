@@ -502,12 +502,14 @@ retry:
 	}
 	if (!s) {
 		spin_unlock(&sb_lock);
+        /* 分配super_block */
 		s = alloc_super(type, (flags & ~MS_SUBMOUNT), user_ns);
 		if (!s)
 			return ERR_PTR(-ENOMEM);
 		goto retry;
 	}
 
+    /* 调用set_bdev_super这个callback函数 */
 	err = set(s, data);
 	if (err) {
 		spin_unlock(&sb_lock);
@@ -1048,6 +1050,7 @@ struct dentry *mount_ns(struct file_system_type *fs_type,
 EXPORT_SYMBOL(mount_ns);
 
 #ifdef CONFIG_BLOCK
+/* 将block_device设置进super_block */
 static int set_bdev_super(struct super_block *s, void *data)
 {
 	s->s_bdev = data;
@@ -1074,6 +1077,7 @@ struct dentry *mount_bdev(struct file_system_type *fs_type,
 	if (!(flags & MS_RDONLY))
 		mode |= FMODE_WRITE;
 
+    /* 根据/dev/x找到设备并打开 */
 	bdev = blkdev_get_by_path(dev_name, mode, fs_type);
 	if (IS_ERR(bdev))
 		return ERR_CAST(bdev);
@@ -1089,6 +1093,8 @@ struct dentry *mount_bdev(struct file_system_type *fs_type,
 		error = -EBUSY;
 		goto error_bdev;
 	}
+    /* 根据打开设备，填充ext4的super_block */
+    /* set_bdev_super是一个函数 */
 	s = sget(fs_type, test_bdev_super, set_bdev_super, flags | MS_NOSEC,
 		 bdev);
 	mutex_unlock(&bdev->bd_fsfreeze_mutex);

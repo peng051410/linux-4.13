@@ -1743,6 +1743,7 @@ static void scsi_request_fn(struct request_queue *q)
 		 * that the request is fully prepared even if we cannot
 		 * accept it.
 		 */
+        /* 获取请求 */
 		req = blk_peek_request(q);
 		if (!req)
 			break;

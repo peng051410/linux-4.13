@@ -172,11 +172,15 @@ struct gendisk {
 	/* major, first_minor and minors are input parameters only,
 	 * don't use directly.  Use disk_devt() and disk_max_parts().
 	 */
+    /* 主设备号 */
 	int major;			/* major number of driver */
+    /* 第一个分区的从设备号 */
 	int first_minor;
+    /* 分区的数目 */
 	int minors;                     /* maximum number of minors, =1 for
                                          * disks that can't be partitioned. */
 
+    /* 磁盘设备的名称 */
 	char disk_name[DISK_NAME_LEN];	/* name of major driver */
 	char *(*devnode)(struct gendisk *gd, umode_t *mode);
 
@@ -188,10 +192,13 @@ struct gendisk {
 	 * non-critical accesses use RCU.  Always access through
 	 * helpers.
 	 */
+    /* 里面是数组，用于表示各个分区 */
 	struct disk_part_tbl __rcu *part_tbl;
 	struct hd_struct part0;
 
+    /* 对于块设备的各种操作 */
 	const struct block_device_operations *fops;
+    /* 块设备上的请求队列 */
 	struct request_queue *queue;
 	void *private_data;
 

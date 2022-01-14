@@ -1995,10 +1995,10 @@ static int make_indexed_dir(handle_t *handle, struct ext4_filename *fname,
 
 	retval = ext4_handle_dirty_dx_node(handle, dir, frame->bh);
 	if (retval)
-		goto out_frames;	
+		goto out_frames;
 	retval = ext4_handle_dirty_dirent_node(handle, dir, bh2);
 	if (retval)
-		goto out_frames;	
+		goto out_frames;
 
 	de = do_split(handle,dir, &bh2, frame, &fname->hinfo);
 	if (IS_ERR(de)) {
@@ -2480,6 +2480,7 @@ static int ext4_mknod(struct inode *dir, struct dentry *dentry,
 	credits = (EXT4_DATA_TRANS_BLOCKS(dir->i_sb) +
 		   EXT4_INDEX_EXTRA_TRANS_BLOCKS + 3);
 retry:
+    /* 在文件系统上创建一个文件，在内存中创建一个特殊的inode */
 	inode = ext4_new_inode_start_handle(dir, mode, &dentry->d_name, 0,
 					    NULL, EXT4_HT_DIR, credits);
 	handle = ext4_journal_current_handle();
@@ -3152,7 +3153,7 @@ static int ext4_symlink(struct inode *dir,
 		 * for transaction commit if we are running out of space
 		 * and thus we deadlock. So we have to stop transaction now
 		 * and restart it when symlink contents is written.
-		 * 
+		 *
 		 * To keep fs consistent in case of crash, we have to put inode
 		 * to orphan list in the mean time.
 		 */

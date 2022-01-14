@@ -381,6 +381,7 @@ __sigqueue_alloc(int sig, struct task_struct *t, gfp_t flags, int override_rlimi
 	if (override_rlimit ||
 	    atomic_read(&user->sigpending) <=
 			task_rlimit(t, RLIMIT_SIGPENDING)) {
+        /* 分配一个queue */
 		q = kmem_cache_alloc(sigqueue_cachep, flags);
 	} else {
 		print_dropped_signal(sig);
@@ -658,6 +659,7 @@ int dequeue_signal(struct task_struct *tsk, sigset_t *mask, siginfo_t *info)
  */
 void signal_wake_up_state(struct task_struct *t, unsigned int state)
 {
+    /* 设置标识位TIF_SIGPENDING */
 	set_tsk_thread_flag(t, TIF_SIGPENDING);
 	/*
 	 * TASK_WAKEKILL also means wake it up in the stopped/traced/killable
@@ -666,6 +668,7 @@ void signal_wake_up_state(struct task_struct *t, unsigned int state)
 	 * By using wake_up_state, we ensure the process will wake up and
 	 * handle its death signal.
 	 */
+    /* 试图唤醒线程 */
 	if (!wake_up_state(t, state | TASK_INTERRUPTIBLE))
 		kick_process(t);
 }
@@ -959,12 +962,14 @@ static void complete_signal(int sig, struct task_struct *p, int group)
 	 * The signal is already in the shared-pending queue.
 	 * Tell the chosen thread to wake up and dequeue it.
 	 */
+    /* 唤醒处理信号的线程 */
 	signal_wake_up(t, sig == SIGKILL);
 	return;
 }
 
 static inline int legacy_queue(struct sigpending *signals, int sig)
 {
+    /* 信号小于32则直接退出 */
 	return (sig < SIGRTMIN) && sigismember(&signals->signal, sig);
 }
 
@@ -1004,6 +1009,7 @@ static int __send_signal(int sig, struct siginfo *info, struct task_struct *t,
 			from_ancestor_ns || (info == SEND_SIG_FORCED)))
 		goto ret;
 
+    /* 决定使用哪个sigpending,是发给进程还是线程 */
 	pending = group ? &t->signal->shared_pending : &t->pending;
 	/*
 	 * Short-circuit ignored signals and support queuing
@@ -1036,9 +1042,11 @@ static int __send_signal(int sig, struct siginfo *info, struct task_struct *t,
 	else
 		override_rlimit = 0;
 
+    /* 分配一个sigqueue */
 	q = __sigqueue_alloc(sig, t, GFP_ATOMIC | __GFP_NOTRACK_FALSE_POSITIVE,
 		override_rlimit);
 	if (q) {
+        /* 挂载到链表上 */
 		list_add_tail(&q->list, &pending->list);
 		switch ((unsigned long) info) {
 		case (unsigned long) SEND_SIG_NOINFO:
@@ -3135,6 +3143,7 @@ int do_sigaction(int sig, struct k_sigaction *act, struct k_sigaction *oact)
 	sigaction_compat_abi(act, oact);
 
 	if (act) {
+        /* 设置信号处理函数 */
 		sigdelsetmask(&act->sa.sa_mask,
 			      sigmask(SIGKILL) | sigmask(SIGSTOP));
 		*k = *act;
@@ -3393,6 +3402,7 @@ SYSCALL_DEFINE4(rt_sigaction, int, sig,
 		goto out;
 
 	if (act) {
+        /* 将用户态的sigaction拷贝为内核态的k_sigaction */
 		if (copy_from_user(&new_sa.sa, act, sizeof(new_sa.sa)))
 			return -EFAULT;
 	}

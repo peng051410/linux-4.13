@@ -1751,6 +1751,7 @@ repeat:
 		}
 
 alloc_huge:
+        /* 分配页 */
 		page = shmem_alloc_and_acct_page(gfp, info, sbinfo,
 				index, true);
 		if (IS_ERR(page)) {
@@ -1992,6 +1993,7 @@ static int shmem_fault(struct vm_fault *vmf)
 	else if (vma->vm_flags & VM_HUGEPAGE)
 		sgp = SGP_HUGE;
 
+    /* 找空闲页进行分配 */
 	error = shmem_getpage_gfp(inode, vmf->pgoff, &vmf->page, sgp,
 				  gfp, vma, vmf, &ret);
 	if (error)
@@ -3954,12 +3956,14 @@ int __init shmem_init(void)
 	if (error)
 		goto out3;
 
+    /* 注册文件系统shmem_fs_type */
 	error = register_filesystem(&shmem_fs_type);
 	if (error) {
 		pr_err("Could not register tmpfs\n");
 		goto out2;
 	}
 
+    /* 挂载到shm_mnt下 */
 	shm_mnt = kern_mount(&shmem_fs_type);
 	if (IS_ERR(shm_mnt)) {
 		error = PTR_ERR(shm_mnt);
@@ -4166,17 +4170,20 @@ static struct file *__shmem_file_setup(const char *name, loff_t size,
 	this.hash = 0; /* will go */
 	sb = shm_mnt->mnt_sb;
 	path.mnt = mntget(shm_mnt);
+    /* 创建dentry */
 	path.dentry = d_alloc_pseudo(sb, &this);
 	if (!path.dentry)
 		goto put_memory;
 	d_set_d_op(path.dentry, &anon_ops);
 
 	res = ERR_PTR(-ENOSPC);
+    /* 创建inode */
 	inode = shmem_get_inode(sb, NULL, S_IFREG | S_IRWXUGO, 0, flags);
 	if (!inode)
 		goto put_memory;
 
 	inode->i_flags |= i_flags;
+    /* 关联dentry与inode */
 	d_instantiate(path.dentry, inode);
 	inode->i_size = size;
 	clear_nlink(inode);	/* It is unlinked */
@@ -4184,6 +4191,7 @@ static struct file *__shmem_file_setup(const char *name, loff_t size,
 	if (IS_ERR(res))
 		goto put_path;
 
+    /* 分配file表示新的shmem文件并指向shmem_file_operations */
 	res = alloc_file(&path, FMODE_WRITE | FMODE_READ,
 		  &shmem_file_operations);
 	if (IS_ERR(res))

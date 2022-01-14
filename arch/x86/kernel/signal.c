@@ -269,6 +269,7 @@ get_sigframe(struct k_sigaction *ka, struct pt_regs *regs, size_t frame_size,
 		*fpstate = (void __user *)sp;
 	}
 
+    /* 把栈针放到栈里面 */
 	sp = align_sigframe(sp - frame_size);
 
 	/*
@@ -381,6 +382,7 @@ static int __setup_rt_frame(int sig, struct ksignal *ksig,
 	int err = 0;
 	void __user *fpstate = NULL;
 
+    /* 可以获取pt_regs中的sp变量并进行放入栈帧操作 */
 	frame = get_sigframe(&ksig->ka, regs, sizeof(*frame), &fpstate);
 
 	if (!access_ok(VERIFY_WRITE, frame, sizeof(*frame)))
@@ -404,6 +406,7 @@ static int __setup_rt_frame(int sig, struct ksignal *ksig,
 			vdso_image_32.sym___kernel_rt_sigreturn;
 		if (ksig->ka.sa.sa_flags & SA_RESTORER)
 			restorer = ksig->ka.sa.sa_restorer;
+        /* 此处关键，将恢复器地址放到栈帧返回地址中 */
 		put_user_ex(restorer, &frame->pretcode);
 
 		/*
@@ -415,7 +418,7 @@ static int __setup_rt_frame(int sig, struct ksignal *ksig,
 		 */
 		put_user_ex(*((u64 *)&rt_retcode), (u64 *)frame->retcode);
 	} put_user_catch(err);
-	
+
 	err |= copy_siginfo_to_user(&frame->info, &ksig->info);
 	err |= setup_sigcontext(&frame->uc.uc_mcontext, fpstate,
 				regs, set->sig[0]);
@@ -425,7 +428,9 @@ static int __setup_rt_frame(int sig, struct ksignal *ksig,
 		return -EFAULT;
 
 	/* Set up registers for signal handler */
+    /* 强行插入栈帧 */
 	regs->sp = (unsigned long)frame;
+    /* 设置为信号的处理函数 */
 	regs->ip = (unsigned long)ksig->ka.sa.sa_handler;
 	regs->ax = (unsigned long)sig;
 	regs->dx = (unsigned long)&frame->info;
@@ -639,6 +644,7 @@ asmlinkage long sys_rt_sigreturn(void)
 	sigset_t set;
 	unsigned long uc_flags;
 
+    /* 取出栈帧 */
 	frame = (struct rt_sigframe __user *)(regs->sp - sizeof(long));
 	if (!access_ok(VERIFY_READ, frame, sizeof(*frame)))
 		goto badframe;
@@ -649,6 +655,7 @@ asmlinkage long sys_rt_sigreturn(void)
 
 	set_current_blocked(&set);
 
+    /* 将pt_regs恢复成原来用户态的样子 */
 	if (restore_sigcontext(regs, &frame->uc.uc_mcontext, uc_flags))
 		goto badframe;
 
@@ -709,6 +716,7 @@ handle_signal(struct ksignal *ksig, struct pt_regs *regs)
 		save_v86_state((struct kernel_vm86_regs *) regs, VM86_SIGNAL);
 
 	/* Are we from a system call? */
+    /* 是否从系统调用中返回，判断是否是正常返回或者是中断返回 */
 	if (syscall_get_nr(current, regs) >= 0) {
 		/* If so, check system call restarting.. */
 		switch (syscall_get_error(current, regs)) {
@@ -718,6 +726,7 @@ handle_signal(struct ksignal *ksig, struct pt_regs *regs)
 			break;
 
 		case -ERESTARTSYS:
+            /* 从没有调用完的系统调用返回 */
 			if (!(ksig->ka.sa.sa_flags & SA_RESTART)) {
 				regs->ax = -EINTR;
 				break;

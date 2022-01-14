@@ -46,10 +46,10 @@ unsigned long pipe_user_pages_hard;
 unsigned long pipe_user_pages_soft = PIPE_DEF_BUFFERS * INR_OPEN_CUR;
 
 /*
- * We use a start+len construction, which provides full use of the 
+ * We use a start+len construction, which provides full use of the
  * allocated memory.
  * -- Florian Coosmann (FGC)
- * 
+ *
  * Reads with count = 0 should always return 0.
  * -- Julian Bradfield 1999-06-07.
  *
@@ -620,6 +620,7 @@ static bool too_many_pipe_buffers_hard(unsigned long user_bufs)
 struct pipe_inode_info *alloc_pipe_info(void)
 {
 	struct pipe_inode_info *pipe;
+    /* 所谓匿名管道，就是内核里的缓存 */
 	unsigned long pipe_bufs = PIPE_DEF_BUFFERS;
 	struct user_struct *user = get_current_user();
 	unsigned long user_bufs;
@@ -695,6 +696,7 @@ static const struct dentry_operations pipefs_dentry_operations = {
 
 static struct inode * get_pipe_inode(void)
 {
+    /* 创建一个inode */
 	struct inode *inode = new_inode_pseudo(pipe_mnt->mnt_sb);
 	struct pipe_inode_info *pipe;
 
@@ -710,6 +712,7 @@ static struct inode * get_pipe_inode(void)
 	inode->i_pipe = pipe;
 	pipe->files = 2;
 	pipe->readers = pipe->writers = 1;
+    /* 来自文件系统pipe */
 	inode->i_fop = &pipefifo_fops;
 
 	/*
@@ -744,6 +747,7 @@ int create_pipe_files(struct file **res, int flags)
 		return -ENFILE;
 
 	err = -ENOMEM;
+    /* 创建dentry */
 	path.dentry = d_alloc_pseudo(pipe_mnt->mnt_sb, &empty_name);
 	if (!path.dentry)
 		goto err_inode;
@@ -751,6 +755,7 @@ int create_pipe_files(struct file **res, int flags)
 
 	d_instantiate(path.dentry, inode);
 
+    /* 先创建写入的文件 */
 	f = alloc_file(&path, FMODE_WRITE, &pipefifo_fops);
 	if (IS_ERR(f)) {
 		err = PTR_ERR(f);
@@ -760,6 +765,7 @@ int create_pipe_files(struct file **res, int flags)
 	f->f_flags = O_WRONLY | (flags & (O_NONBLOCK | O_DIRECT));
 	f->private_data = inode->i_pipe;
 
+    /* 创建读取的文件 */
 	res[0] = alloc_file(&path, FMODE_READ, &pipefifo_fops);
 	if (IS_ERR(res[0])) {
 		err = PTR_ERR(res[0]);
@@ -808,7 +814,9 @@ static int __do_pipe_flags(int *fd, struct file **files, int flags)
 	fdw = error;
 
 	audit_fd_pair(fdr, fdw);
+    /* 用于读 */
 	fd[0] = fdr;
+    /* 用于写 */
 	fd[1] = fdw;
 	return 0;
 
@@ -837,7 +845,9 @@ int do_pipe_flags(int *fd, int flags)
  */
 SYSCALL_DEFINE2(pipe2, int __user *, fildes, int, flags)
 {
+    /* 存放管道两端打开的文件 */
 	struct file *files[2];
+    /* 存放管道两端的文件描述符 */
 	int fd[2];
 	int error;
 
@@ -850,6 +860,7 @@ SYSCALL_DEFINE2(pipe2, int __user *, fildes, int, flags)
 			put_unused_fd(fd[1]);
 			error = -EFAULT;
 		} else {
+            /* 将两个fd和file关联起来 */
 			fd_install(fd[0], files[0]);
 			fd_install(fd[1], files[1]);
 		}
@@ -864,7 +875,7 @@ SYSCALL_DEFINE1(pipe, int __user *, fildes)
 
 static int wait_for_partner(struct pipe_inode_info *pipe, unsigned int *cnt)
 {
-	int cur = *cnt;	
+	int cur = *cnt;
 
 	while (cur == *cnt) {
 		pipe_wait(pipe);
@@ -894,6 +905,7 @@ static int fifo_open(struct inode *inode, struct file *filp)
 		spin_unlock(&inode->i_lock);
 	} else {
 		spin_unlock(&inode->i_lock);
+        /* 创建inode信息 */
 		pipe = alloc_pipe_info();
 		if (!pipe)
 			return -ENOMEM;
@@ -939,7 +951,7 @@ static int fifo_open(struct inode *inode, struct file *filp)
 			}
 		}
 		break;
-	
+
 	case FMODE_WRITE:
 	/*
 	 *  O_WRONLY
@@ -959,7 +971,7 @@ static int fifo_open(struct inode *inode, struct file *filp)
 				goto err_wr;
 		}
 		break;
-	
+
 	case FMODE_READ | FMODE_WRITE:
 	/*
 	 *  O_RDWR
@@ -1004,6 +1016,7 @@ err:
 	return ret;
 }
 
+/* 所有管道对应的系统操 */
 const struct file_operations pipefifo_fops = {
 	.open		= fifo_open,
 	.llseek		= no_llseek,

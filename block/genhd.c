@@ -722,13 +722,16 @@ struct gendisk *get_gendisk(dev_t devt, int *partno)
 {
 	struct gendisk *disk = NULL;
 
+    /* 指向整块设备 */
 	if (MAJOR(devt) != BLOCK_EXT_MAJOR) {
 		struct kobject *kobj;
 
+        /* 根据devt从注册的bdev_map中获取kobj，bdev_map中存放的是__register_chrdev_region初始化时的注册设备 */
 		kobj = kobj_lookup(bdev_map, devt, partno);
 		if (kobj)
 			disk = dev_to_disk(kobj_to_dev(kobj));
 	} else {
+        /* 指向某个分区 */
 		struct hd_struct *part;
 
 		spin_lock_bh(&ext_devt_lock);

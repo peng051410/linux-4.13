@@ -1969,6 +1969,7 @@ void init_special_inode(struct inode *inode, umode_t mode, dev_t rdev)
 		inode->i_rdev = rdev;
 	} else if (S_ISBLK(mode)) {
 		inode->i_fop = &def_blk_fops;
+        /* irdev被设置成块设备号dev_t */
 		inode->i_rdev = rdev;
 	} else if (S_ISFIFO(mode))
 		inode->i_fop = &pipefifo_fops;

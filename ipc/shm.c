@@ -424,6 +424,7 @@ static int shm_mmap(struct file *file, struct vm_area_struct *vma)
 	if (ret)
 		return ret;
 
+    /* 调用了shmem_file_operation的mmap,即shmem_mmap */
 	ret = call_mmap(sfd->file, vma);
 	if (ret) {
 		shm_close(vma);
@@ -542,10 +543,12 @@ static int newseg(struct ipc_namespace *ns, struct ipc_params *params)
 			ns->shm_tot + numpages > ns->shm_ctlall)
 		return -ENOSPC;
 
+    /* 直接分配一个struct shmid_kernel结构 */
 	shp = kvmalloc(sizeof(*shp), GFP_KERNEL);
 	if (unlikely(!shp))
 		return -ENOMEM;
 
+    /* 下面为结构填充 */
 	shp->shm_perm.key = key;
 	shp->shm_perm.mode = (shmflg & S_IRWXUGO);
 	shp->mlock_user = NULL;
@@ -583,6 +586,7 @@ static int newseg(struct ipc_namespace *ns, struct ipc_params *params)
 		if  ((shmflg & SHM_NORESERVE) &&
 				sysctl_overcommit_memory != OVERCOMMIT_NEVER)
 			acctflag = VM_NORESERVE;
+        /* 在shmem文件系统里面创建一个文件 */
 		file = shmem_kernel_file_setup(name, size, acctflag);
 	}
 	error = PTR_ERR(file);
@@ -598,10 +602,12 @@ static int newseg(struct ipc_namespace *ns, struct ipc_params *params)
 	shp->shm_file = file;
 	shp->shm_creator = current;
 
+    /* 将新建的shmem_kernel结构挂载到shm_ids里面的基数树上 */
 	error = ipc_addid(&shm_ids(ns), &shp->shm_perm, ns->shm_ctlmni);
 	if (error < 0)
 		goto no_id;
 
+    /* 将新建的shmem_kernel结构挂载到当前进程的sysvshm队列中 */
 	list_add(&shp->shm_clist, &current->sysvshm.shm_clist);
 
 	/*
@@ -668,6 +674,7 @@ SYSCALL_DEFINE3(shmget, key_t, key, size_t, size, int, shmflg)
 	shm_params.flg = shmflg;
 	shm_params.u.size = size;
 
+    /* 调用抽象的ipcget */
 	return ipcget(ns, &shm_ids(ns), &shm_ops, &shm_params);
 }
 
@@ -1150,6 +1157,7 @@ long do_shmat(int shmid, char __user *shmaddr, int shmflg,
 	 */
 	ns = current->nsproxy->ipc_ns;
 	rcu_read_lock();
+    /* 通过共享内存id在基数树中找到对应的shmid_kernel结构 */
 	shp = shm_obtain_object_check(ns, shmid);
 	if (IS_ERR(shp)) {
 		err = PTR_ERR(shp);
@@ -1181,12 +1189,15 @@ long do_shmat(int shmid, char __user *shmaddr, int shmflg,
 	rcu_read_unlock();
 
 	err = -ENOMEM;
+
+    /* 分配shm_file_data,表示内存文件 */
 	sfd = kzalloc(sizeof(*sfd), GFP_KERNEL);
 	if (!sfd) {
 		path_put(&path);
 		goto out_nattch;
 	}
 
+    /* 创建内存文件，指向shmem中的内存文件,专门用来做内存映射的 */
 	file = alloc_file(&path, f_mode,
 			  is_file_hugepages(shp->shm_file) ?
 				&shm_file_operations_huge :
@@ -1223,6 +1234,7 @@ long do_shmat(int shmid, char __user *shmaddr, int shmflg,
 			goto invalid;
 	}
 
+    /* 实现shm_mmap映射 */
 	addr = do_mmap_pgoff(file, addr, size, prot, flags, 0, &populate, NULL);
 	*raddr = addr;
 	err = 0;

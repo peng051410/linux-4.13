@@ -87,8 +87,11 @@ void __init ipc_init_proc_interface(const char *path, const char *header,
 #define ipc_init_proc_interface(path, header, ids, show) do {} while (0)
 #endif
 
+/* 信号量 */
 #define IPC_SEM_IDS	0
+/* 消息队列 */
 #define IPC_MSG_IDS	1
+/* 共享内存 */
 #define IPC_SHM_IDS	2
 
 #define ipcid_to_idx(id) ((id) % SEQ_MULTIPLIER)

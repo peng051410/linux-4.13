@@ -23,7 +23,9 @@ struct sigqueue {
 #define SIGQUEUE_PREALLOC	1
 
 struct sigpending {
+    /* 收到哪些信号 */
 	struct list_head list;
+    /* 也表示收到哪些信号 */
 	sigset_t signal;
 };
 

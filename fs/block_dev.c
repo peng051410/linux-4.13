@@ -814,11 +814,13 @@ static struct file_system_type bd_type = {
 struct super_block *blockdev_superblock __read_mostly;
 EXPORT_SYMBOL_GPL(blockdev_superblock);
 
+/* 初始化bdev系统 */
 void __init bdev_cache_init(void)
 {
 	int err;
 	static struct vfsmount *bd_mnt;
 
+    /* linux将块设备的block_device和bdev文件系统的inode，通过bdev_inode进行关联 */
 	bdev_cachep = kmem_cache_create("bdev_cache", sizeof(struct bdev_inode),
 			0, (SLAB_HWCACHE_ALIGN|SLAB_RECLAIM_ACCOUNT|
 				SLAB_MEM_SPREAD|SLAB_ACCOUNT|SLAB_PANIC),
@@ -875,12 +877,14 @@ struct block_device *bdget(dev_t dev)
 	struct block_device *bdev;
 	struct inode *inode;
 
+    /* 第三个文件系统bdev */
 	inode = iget5_locked(blockdev_superblock, hash(dev),
 			bdev_test, bdev_set, &dev);
 
 	if (!inode)
 		return NULL;
 
+    /* 通过bdev的inode获取bdev_inode地址,再获取成员bdev，得到block_device */
 	bdev = &BDEV_I(inode)->bdev;
 
 	if (inode->i_state & I_NEW) {
@@ -957,6 +961,7 @@ static struct block_device *bd_acquire(struct inode *inode)
 	if (bdev)
 		bd_forget(inode);
 
+    /* i_rdev对应的是mknod时放的dev_t */
 	bdev = bdget(inode->i_rdev);
 	if (bdev) {
 		spin_lock(&bdev_lock);
@@ -1440,6 +1445,7 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
  restart:
 
 	ret = -ENXIO;
+    /* 根据block_device获取gendisk */
 	disk = get_gendisk(bdev->bd_dev, &partno);
 	if (!disk)
 		goto out;
@@ -1454,12 +1460,14 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 
 		if (!partno) {
 			ret = -ENXIO;
+            /* 整个分区 */
 			bdev->bd_part = disk_get_part(disk, partno);
 			if (!bdev->bd_part)
 				goto out_clear;
 
 			ret = 0;
 			if (disk->fops->open) {
+                /* 调用block_device_operations的open函数打开设备 */
 				ret = disk->fops->open(bdev, mode);
 				if (ret == -ERESTARTSYS) {
 					/* Lost a race with 'disk' being
@@ -1497,6 +1505,7 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 			if (ret)
 				goto out_clear;
 		} else {
+            /* 打开的是分区 */
 			struct block_device *whole;
 			whole = bdget_disk(disk, 0);
 			ret = -ENOMEM;
@@ -1671,10 +1680,12 @@ struct block_device *blkdev_get_by_path(const char *path, fmode_t mode,
 	struct block_device *bdev;
 	int err;
 
+    /* 根据path获取block_device */
 	bdev = lookup_bdev(path);
 	if (IS_ERR(bdev))
 		return bdev;
 
+    /* 打开设备 */
 	err = blkdev_get(bdev, mode, holder);
 	if (err)
 		return ERR_PTR(err);
@@ -2071,10 +2082,12 @@ struct block_device *lookup_bdev(const char *pathname)
 	if (!pathname || !*pathname)
 		return ERR_PTR(-EINVAL);
 
+    /* pathname对应devtmpfs系统中的，在这个系统找到dentry */
 	error = kern_path(pathname, LOOKUP_FOLLOW, &path);
 	if (error)
 		return ERR_PTR(error);
 
+    /* 获取inode，对应init_special_inode中生成的inode */
 	inode = d_backing_inode(path.dentry);
 	error = -ENOTBLK;
 	if (!S_ISBLK(inode->i_mode))
@@ -2083,6 +2096,7 @@ struct block_device *lookup_bdev(const char *pathname)
 	if (!may_open_dev(&path))
 		goto fail;
 	error = -ENOMEM;
+    /* 根据inode获取block_device */
 	bdev = bd_acquire(inode);
 	if (!bdev)
 		goto fail;
