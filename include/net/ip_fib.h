@@ -160,7 +160,7 @@ struct fib_result_nl {
 	unsigned char	nh_sel;
 	unsigned char	type;
 	unsigned char	scope;
-	int             err;      
+	int             err;
 };
 
 #ifdef CONFIG_IP_ROUTE_MULTIPATH
@@ -310,6 +310,7 @@ static inline int fib_lookup(struct net *net, const struct flowi4 *flp,
 
 	tb = fib_get_table(net, RT_TABLE_MAIN);
 	if (tb)
+    /* 查找路由表 */
 		err = fib_table_lookup(tb, flp, res, flags | FIB_LOOKUP_NOREF);
 
 	if (err == -EAGAIN)

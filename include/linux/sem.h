@@ -10,6 +10,7 @@ struct task_struct;
 
 /* One semaphore structure for each semaphore in the system. */
 struct sem {
+    /* 单个信号量值 */
 	int	semval;		/* current value */
 	/*
 	 * PID of the process that last modified the semaphore. For
@@ -20,6 +21,7 @@ struct sem {
 	 */
 	int	sempid;
 	spinlock_t	lock;	/* spinlock for fine-grained semtimedop */
+    /* 对信号的修改 */
 	struct list_head pending_alter; /* pending single-sop operations */
 					/* that alter the semaphore */
 	struct list_head pending_const; /* pending single-sop operations */
@@ -28,9 +30,11 @@ struct sem {
 } ____cacheline_aligned_in_smp;
 
 /* One sem_array data structure for each set of semaphores in the system. */
+/* 描述信号量的结构 */
 struct sem_array {
 	struct kern_ipc_perm	sem_perm;	/* permissions .. see ipc.h */
 	time_t			sem_ctime;	/* create/last semctl() time */
+    /* 对信号量数组的修改 */
 	struct list_head	pending_alter;	/* pending operations */
 						/* that alter the array */
 	struct list_head	pending_const;	/* pending complex operations */
@@ -45,7 +49,9 @@ struct sem_array {
 
 #ifdef CONFIG_SYSVIPC
 
+
 struct sysv_sem {
+    /* 串联所有的sem的undo操作 */
 	struct sem_undo_list *undo_list;
 };
 

@@ -62,8 +62,11 @@ struct net;
  * overrides this enum for binary compat reasons.
  */
 enum sock_type {
+    /* 数据流 */
 	SOCK_STREAM	= 1,
+    /* 数据报 */
 	SOCK_DGRAM	= 2,
+    /* 原始数据包 */
 	SOCK_RAW	= 3,
 	SOCK_RDM	= 4,
 	SOCK_SEQPACKET	= 5,

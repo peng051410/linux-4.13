@@ -92,6 +92,7 @@
 struct sem_queue {
 	struct list_head	list;	 /* queue of pending operations */
 	struct task_struct	*sleeper; /* this process */
+    /* 操作的反向操作 */
 	struct sem_undo		*undo;	 /* undo structure */
 	int			pid;	 /* process id of requesting process */
 	int			status;	 /* completion status of operation */
@@ -485,10 +486,12 @@ static int newary(struct ipc_namespace *ns, struct ipc_params *params)
 	if (ns->used_sems + nsems > ns->sc_semmns)
 		return -ENOSPC;
 
+    /* 直接映射区分配sem_array结构 */
 	sma = sem_alloc(nsems);
 	if (!sma)
 		return -ENOMEM;
 
+    /* 填充结构 */
 	sma->sem_perm.mode = (semflg & S_IRWXUGO);
 	sma->sem_perm.key = key;
 
@@ -507,12 +510,14 @@ static int newary(struct ipc_namespace *ns, struct ipc_params *params)
 
 	sma->complex_count = 0;
 	sma->use_global_lock = USE_GLOBAL_LOCK_HYSTERESIS;
+    /* 初始化链表 */
 	INIT_LIST_HEAD(&sma->pending_alter);
 	INIT_LIST_HEAD(&sma->pending_const);
 	INIT_LIST_HEAD(&sma->list_id);
 	sma->sem_nsems = nsems;
 	sma->sem_ctime = get_seconds();
 
+    /* 将创建的arr挂载到sem_ids的基数树上 */
 	retval = ipc_addid(&sem_ids(ns), &sma->sem_perm, ns->sc_semmni);
 	if (retval < 0) {
 		call_rcu(&sma->sem_perm.rcu, sem_rcu_free);
@@ -643,6 +648,7 @@ out_of_range:
 	goto undo;
 
 would_block:
+    /* queue block在这个操作上 */
 	q->blocking = sop;
 
 	if (sop->sem_flg & IPC_NOWAIT)
@@ -694,6 +700,7 @@ static int perform_atomic_semop(struct sem_array *sma, struct sem_queue *q)
 
 		result += sem_op;
 		if (result < 0)
+        /* 进行等待 */
 			goto would_block;
 
 		if (result > SEMVMX)
@@ -708,6 +715,7 @@ static int perform_atomic_semop(struct sem_array *sma, struct sem_queue *q)
 		}
 	}
 
+    /* 第一个循环中无需等待，则第二个循环实施所有信号量操作 */
 	for (sop = sops; sop < sops + nsops; sop++) {
 		curr = &sma->sems[sop->sem_num];
 		sem_op = sop->sem_op;
@@ -905,6 +913,7 @@ static int update_queue(struct sem_array *sma, int semnum, struct wake_q_head *w
 		pending_list = &sma->sems[semnum].pending_alter;
 
 again:
+    /* 循环等待列表 */
 	list_for_each_entry_safe(q, tmp, pending_list, list) {
 		int error, restart;
 
@@ -918,12 +927,14 @@ again:
 		if (semnum != -1 && sma->sems[semnum].semval == 0)
 			break;
 
+        /* 在信号量值变的情况下,执行信号量操作 */
 		error = perform_atomic_semop(sma, q);
 
 		/* Does q->sleeper still need to sleep? */
 		if (error > 0)
 			continue;
 
+        /* 尝试成功 */
 		unlink_queue(sma, q);
 
 		if (error) {
@@ -934,6 +945,7 @@ again:
 			restart = check_restart(sma, q);
 		}
 
+        /* 将q->sleeper(等待这个信号量的进程)加到wake_q中 */
 		wake_up_sem_queue_prepare(q, error, wake_q);
 		if (restart)
 			goto again;
@@ -1266,6 +1278,7 @@ out_unlock:
 	return err;
 }
 
+/* semun仅仅会设置某个信号量 */
 static int semctl_setval(struct ipc_namespace *ns, int semid, int semnum,
 		unsigned long arg)
 {
@@ -1287,6 +1300,7 @@ static int semctl_setval(struct ipc_namespace *ns, int semid, int semnum,
 		return -ERANGE;
 
 	rcu_read_lock();
+    /* 根据信号量在基数树中找 */
 	sma = sem_obtain_object_check(ns, semid);
 	if (IS_ERR(sma)) {
 		rcu_read_unlock();
@@ -1324,7 +1338,9 @@ static int semctl_setval(struct ipc_namespace *ns, int semid, int semnum,
 	list_for_each_entry(un, &sma->list_id, list_id)
 		un->semadj[semnum] = 0;
 
+    /* 设置值 */
 	curr->semval = val;
+    /* 修改信号量值的pid */
 	curr->sempid = task_tgid_vnr(current);
 	sma->sem_ctime = get_seconds();
 	/* maybe some queued-up processes were waiting for this */
@@ -1346,6 +1362,7 @@ static int semctl_main(struct ipc_namespace *ns, int semid, int semnum,
 	DEFINE_WAKE_Q(wake_q);
 
 	rcu_read_lock();
+    /* 根据smid在基数树上找sem_array对象 */
 	sma = sem_obtain_object_check(ns, semid);
 	if (IS_ERR(sma)) {
 		rcu_read_unlock();
@@ -1424,6 +1441,7 @@ static int semctl_main(struct ipc_namespace *ns, int semid, int semnum,
 			}
 		}
 
+        /* 将用户参数中的数据short *array拷贝到内核的sem_io数组 */
 		if (copy_from_user(sem_io, p, nsems*sizeof(ushort))) {
 			ipc_rcu_putref(&sma->sem_perm, sem_rcu_free);
 			err = -EFAULT;
@@ -1444,6 +1462,7 @@ static int semctl_main(struct ipc_namespace *ns, int semid, int semnum,
 			goto out_unlock;
 		}
 
+        /* 对每一个信号量设置semval，修改值pid */
 		for (i = 0; i < nsems; i++) {
 			sma->sems[i].semval = sem_io[i];
 			sma->sems[i].sempid = task_tgid_vnr(current);
@@ -1610,8 +1629,10 @@ SYSCALL_DEFINE4(semctl, int, semid, int, semnum, int, cmd, unsigned long, arg)
 	case GETNCNT:
 	case GETZCNT:
 	case SETALL:
+        /* 重点 */
 		return semctl_main(ns, semid, semnum, cmd, p);
 	case SETVAL:
+        /* 重点 */
 		return semctl_setval(ns, semid, semnum, arg);
 	case IPC_RMID:
 	case IPC_SET:
@@ -1791,12 +1812,14 @@ SYSCALL_DEFINE4(semtimedop, int, semid, struct sembuf __user *, tsops,
 			return -ENOMEM;
 	}
 
+    /* 用户参数拷贝到内核 */
 	if (copy_from_user(sops, tsops, nsops * sizeof(*tsops))) {
 		error =  -EFAULT;
 		goto out_free;
 	}
 
 	if (timeout) {
+        /*  P操作等待超时 */
 		struct timespec _timeout;
 		if (copy_from_user(&_timeout, timeout, sizeof(*timeout))) {
 			error = -EFAULT;
@@ -1845,6 +1868,7 @@ SYSCALL_DEFINE4(semtimedop, int, semid, struct sembuf __user *, tsops,
 		rcu_read_lock();
 	}
 
+    /* 根据信号量集合id获得sem_array */
 	sma = sem_obtain_object_check(ns, semid);
 	if (IS_ERR(sma)) {
 		rcu_read_unlock();
@@ -1899,8 +1923,10 @@ SYSCALL_DEFINE4(semtimedop, int, semid, struct sembuf __user *, tsops,
 	queue.alter = alter;
 	queue.dupsop = dupsop;
 
+    /* 实施信号量操作 */
 	error = perform_atomic_semop(sma, &queue);
 	if (error == 0) { /* non-blocking succesfull path */
+        /* 不需要等待，声明wakeq */
 		DEFINE_WAKE_Q(wake_q);
 
 		/*
@@ -1914,6 +1940,7 @@ SYSCALL_DEFINE4(semtimedop, int, semid, struct sembuf __user *, tsops,
 
 		sem_unlock(sma, locknum);
 		rcu_read_unlock();
+        /* 依次唤醒q上的task_struct */
 		wake_up_q(&wake_q);
 
 		goto out_free;
@@ -1935,6 +1962,7 @@ SYSCALL_DEFINE4(semtimedop, int, semid, struct sembuf __user *, tsops,
 						&sma->pending_alter);
 			} else {
 
+                /* 一个挂到信号量的pending_alter */
 				list_add_tail(&queue.list,
 						&curr->pending_alter);
 			}
@@ -1946,6 +1974,7 @@ SYSCALL_DEFINE4(semtimedop, int, semid, struct sembuf __user *, tsops,
 			merge_queues(sma);
 
 		if (alter)
+        /* 挂到集合的pending_alter */
 			list_add_tail(&queue.list, &sma->pending_alter);
 		else
 			list_add_tail(&queue.list, &sma->pending_const);
@@ -1962,6 +1991,7 @@ SYSCALL_DEFINE4(semtimedop, int, semid, struct sembuf __user *, tsops,
 		rcu_read_unlock();
 
 		if (timeout)
+        /* 有时间限制 */
 			jiffies_left = schedule_timeout(jiffies_left);
 		else
 			schedule();

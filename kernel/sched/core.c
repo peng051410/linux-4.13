@@ -464,6 +464,7 @@ void wake_up_q(struct wake_q_head *head)
 		 * wake_up_process() implies a wmb() to pair with the queueing
 		 * in wake_q_add() so as not to miss wakeups.
 		 */
+        /* 唤醒进程 */
 		wake_up_process(task);
 		put_task_struct(task);
 	}
@@ -3566,7 +3567,7 @@ EXPORT_SYMBOL_GPL(preempt_schedule_notrace);
 
 /*
  * this is the entry point to schedule() from kernel preemption
- 
+
  * Note, that this is called and return with irqs disabled. This will
  * protect us against recursive calling from irq.
  */

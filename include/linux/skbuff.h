@@ -437,6 +437,7 @@ struct skb_shared_info {
 	void *		destructor_arg;
 
 	/* must be last field, see pskb_expand_head() */
+    /* 指向一个数组的页面 */
 	skb_frag_t	frags[MAX_SKB_FRAGS];
 };
 
@@ -508,7 +509,7 @@ typedef unsigned int sk_buff_data_t;
 typedef unsigned char *sk_buff_data_t;
 #endif
 
-/** 
+/**
  *	struct sk_buff - socket buffer
  *	@next: Next buffer in list
  *	@prev: Previous buffer in list
@@ -747,8 +748,11 @@ struct sk_buff {
 	__u16			inner_mac_header;
 
 	__be16			protocol;
+    /* 四层transport header */
 	__u16			transport_header;
+    /* 三层network header */
 	__u16			network_header;
+    /* 二层Mac header */
 	__u16			mac_header;
 
 	/* private: */
@@ -756,9 +760,13 @@ struct sk_buff {
 	/* public: */
 
 	/* These elements must be at the end, see alloc_skb() for details.  */
+    /* 指向数据的结尾 */
 	sk_buff_data_t		tail;
+    /* 内存结束地址 */
 	sk_buff_data_t		end;
+    /* 内存起始地址 */
 	unsigned char		*head,
+    /* data位置指向指针可变*/
 				*data;
 	unsigned int		truesize;
 	refcount_t		users;
@@ -797,7 +805,7 @@ static inline bool skb_pfmemalloc(const struct sk_buff *skb)
  */
 static inline struct dst_entry *skb_dst(const struct sk_buff *skb)
 {
-	/* If refdst was not refcounted, check we still are in a 
+	/* If refdst was not refcounted, check we still are in a
 	 * rcu_read_lock section
 	 */
 	WARN_ON((skb->_skb_refdst & SKB_DST_NOREF) &&

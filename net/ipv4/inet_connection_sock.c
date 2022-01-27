@@ -402,6 +402,7 @@ static int inet_csk_wait_for_connect(struct sock *sk, long timeo)
 					  TASK_INTERRUPTIBLE);
 		release_sock(sk);
 		if (reqsk_queue_empty(&icsk->icsk_accept_queue))
+        /* 让出cpu */
 			timeo = schedule_timeout(timeo);
 		sched_annotate_sleep();
 		lock_sock(sk);
@@ -443,6 +444,7 @@ struct sock *inet_csk_accept(struct sock *sk, int flags, int *err, bool kern)
 		goto out_err;
 
 	/* Find already established connection */
+    /* 如果queue为空，则等待 */
 	if (reqsk_queue_empty(queue)) {
 		long timeo = sock_rcvtimeo(sk, flags & O_NONBLOCK);
 
@@ -451,10 +453,12 @@ struct sock *inet_csk_accept(struct sock *sk, int flags, int *err, bool kern)
 		if (!timeo)
 			goto out_err;
 
+        /* 进行等待 */
 		error = inet_csk_wait_for_connect(sk, timeo);
 		if (error)
 			goto out_err;
 	}
+    /* 从队列取任务 */
 	req = reqsk_queue_remove(queue, sk);
 	newsk = req->sk;
 
@@ -863,10 +867,12 @@ EXPORT_SYMBOL(inet_csk_prepare_forced_close);
 
 int inet_csk_listen_start(struct sock *sk, int backlog)
 {
+    /* 强制转换,扩大结构 */
 	struct inet_connection_sock *icsk = inet_csk(sk);
 	struct inet_sock *inet = inet_sk(sk);
 	int err = -EADDRINUSE;
 
+    /* 分配queue，因为内核维护了两个队列 */
 	reqsk_queue_alloc(&icsk->icsk_accept_queue);
 
 	sk->sk_max_ack_backlog = backlog;
@@ -878,7 +884,9 @@ int inet_csk_listen_start(struct sock *sk, int backlog)
 	 * It is OK, because this socket enters to hash table only
 	 * after validation is complete.
 	 */
+    /* 设置服务状态为TCP_LISTEN */
 	sk_state_store(sk, TCP_LISTEN);
+    /* 再次检查端口是否冲突 */
 	if (!sk->sk_prot->get_port(sk, inet->inet_num)) {
 		inet->inet_sport = htons(inet->inet_num);
 

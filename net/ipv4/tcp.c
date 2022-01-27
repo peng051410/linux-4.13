@@ -1146,6 +1146,7 @@ static int tcp_sendmsg_fastopen(struct sock *sk, struct msghdr *msg,
 
 int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
 {
+    /* 强制转换，tcp_sock是维护TCP连接状态的重要结构 */
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct sk_buff *skb;
 	struct sockcm_cookie sockc;
@@ -1207,9 +1208,11 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
 	sk_clear_bit(SOCKWQ_ASYNC_NOSPACE, sk);
 
 	/* Ok commence sending. */
+    /* 表示拷贝了多少数据 */
 	copied = 0;
 
 restart:
+    /* 计算发送MSS */
 	mss_now = tcp_send_mss(sk, &size_goal, flags);
 
 	err = -EPIPE;
@@ -1219,13 +1222,16 @@ restart:
 	sg = !!(sk->sk_route_caps & NETIF_F_SG);
 
 	while (msg_data_left(msg)) {
+        /* 拷贝的值 */
 		int copy = 0;
 		int max = size_goal;
 
+        /* 从write_queue中取一个sk_buffer */
 		skb = tcp_write_queue_tail(sk);
 		if (tcp_send_head(sk)) {
 			if (skb->ip_summed == CHECKSUM_NONE)
 				max = mss_now;
+            /* 获取当前skb的剩余空间 */
 			copy = max - skb->len;
 		}
 
@@ -1236,6 +1242,7 @@ new_segment:
 			/* Allocate new segment. If the interface is SG,
 			 * allocate skb fitting to single page.
 			 */
+            /* 重新分配sk_buffer */
 			if (!sk_stream_memory_free(sk))
 				goto wait_for_sndbuf;
 
@@ -1258,6 +1265,7 @@ new_segment:
 			if (sk_check_csum_caps(sk))
 				skb->ip_summed = CHECKSUM_PARTIAL;
 
+            /* 将分配的buffer放到队尾 */
 			skb_entail(sk, skb);
 			copy = size_goal;
 			max = size_goal;
@@ -1278,6 +1286,7 @@ new_segment:
 		if (skb_availroom(skb) > 0) {
 			/* We have some space in skb head. Superb! */
 			copy = min_t(int, copy, skb_availroom(skb));
+            /* 拷贝到连接的区域 */
 			err = skb_add_data_nocache(sk, skb, &msg->msg_iter, copy);
 			if (err)
 				goto do_fault;
@@ -1303,6 +1312,7 @@ new_segment:
 			if (!sk_wmem_schedule(sk, copy))
 				goto wait_for_memory;
 
+            /* 拷贝到不连接的区域，也就是需要网络设备分散聚合 */
 			err = skb_copy_to_page_nocache(sk, &msg->msg_iter, skb,
 						       pfrag->page,
 						       pfrag->offset,
@@ -1340,8 +1350,10 @@ new_segment:
 
 		if (forced_push(tp)) {
 			tcp_mark_push(tp, skb);
+            /* 发送的数据过多 */
 			__tcp_push_pending_frames(sk, mss_now, TCP_NAGLE_PUSH);
 		} else if (skb == tcp_send_head(sk))
+        /* 第一个包，马上发送 */
 			tcp_push_one(sk, mss_now);
 		continue;
 

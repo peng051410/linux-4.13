@@ -2001,7 +2001,7 @@ static int shmem_fault(struct vm_fault *vmf)
 	return ret;
 }
 
-unsigned long shmem_get_unmapped_area(struct file *file,
+unsigned long shmem_get_unmapped_area(struct filsemgete *file,
 				      unsigned long uaddr, unsigned long len,
 				      unsigned long pgoff, unsigned long flags)
 {

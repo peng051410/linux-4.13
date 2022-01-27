@@ -2432,6 +2432,7 @@ static void __netif_reschedule(struct Qdisc *q)
 	q->next_sched = NULL;
 	*sd->output_queue_tailp = q;
 	sd->output_queue_tailp = &q->next_sched;
+    /* 发起软中断, NET_TX_SOFTRQ对应net_tx_action */
 	raise_softirq_irqoff(NET_TX_SOFTIRQ);
 	local_irq_restore(flags);
 }
@@ -2993,9 +2994,11 @@ struct sk_buff *dev_hard_start_xmit(struct sk_buff *first, struct net_device *de
 	int rc = NETDEV_TX_OK;
 
 	while (skb) {
+        /* 从队列里面取sk_buff */
 		struct sk_buff *next = skb->next;
 
 		skb->next = NULL;
+        /* 发送 */
 		rc = xmit_one(skb, dev, txq, next != NULL);
 		if (unlikely(!dev_xmit_complete(rc))) {
 			skb->next = next;
@@ -3004,6 +3007,7 @@ struct sk_buff *dev_hard_start_xmit(struct sk_buff *first, struct net_device *de
 
 		skb = next;
 		if (netif_xmit_stopped(txq) && skb) {
+            /* 发送不成功，即网卡忙 */
 			rc = NETDEV_TX_BUSY;
 			break;
 		}
@@ -3189,12 +3193,14 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
 
 		rc = NET_XMIT_SUCCESS;
 	} else {
+        /* 请求放入队列 */
 		rc = q->enqueue(skb, q, &to_free) & NET_XMIT_MASK;
 		if (qdisc_run_begin(q)) {
 			if (unlikely(contended)) {
 				spin_unlock(&q->busylock);
 				contended = false;
 			}
+            /* 处理队列中的数据 */
 			__qdisc_run(q);
 		}
 	}
@@ -3405,7 +3411,9 @@ struct netdev_queue *netdev_pick_tx(struct net_device *dev,
 static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
 {
 	struct net_device *dev = skb->dev;
+    /* 发送队列 */
 	struct netdev_queue *txq;
+    /* queueing discipline排队规则 */
 	struct Qdisc *q;
 	int rc = -ENOMEM;
 
@@ -3445,6 +3453,7 @@ static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
 
 	trace_net_dev_queue(skb);
 	if (q->enqueue) {
+        /* 开始网络包的发送 */
 		rc = __dev_xmit_skb(skb, q, dev, txq);
 		goto out;
 	}
@@ -3938,6 +3947,7 @@ int netif_rx_ni(struct sk_buff *skb)
 }
 EXPORT_SYMBOL(netif_rx_ni);
 
+/* 发送网络包 */
 static __latent_entropy void net_tx_action(struct softirq_action *h)
 {
 	struct softnet_data *sd = this_cpu_ptr(&softnet_data);
@@ -3992,6 +4002,7 @@ static __latent_entropy void net_tx_action(struct softirq_action *h)
 			 */
 			smp_mb__before_atomic();
 			clear_bit(__QDISC_STATE_SCHED, &q->state);
+            /* 调用qdisc_run */
 			qdisc_run(q);
 			spin_unlock(root_lock);
 		}

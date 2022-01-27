@@ -881,6 +881,7 @@ static ssize_t sock_read_iter(struct kiocb *iocb, struct iov_iter *to)
 static ssize_t sock_write_iter(struct kiocb *iocb, struct iov_iter *from)
 {
 	struct file *file = iocb->ki_filp;
+    /* 从VFS中取socket结构 */
 	struct socket *sock = file->private_data;
 	struct msghdr msg = {.msg_iter = *from,
 			     .msg_iocb = iocb};
@@ -895,6 +896,7 @@ static ssize_t sock_write_iter(struct kiocb *iocb, struct iov_iter *from)
 	if (sock->type == SOCK_SEQPACKET)
 		msg.msg_flags |= MSG_EOR;
 
+    /* 发送消息 */
 	res = sock_sendmsg(sock, &msg);
 	*from = msg.msg_iter;
 	return res;
@@ -1209,6 +1211,7 @@ int __sock_create(struct net *net, int family, int type, int protocol,
 	 *	the protocol is 0, the family is instructed to select an appropriate
 	 *	default.
 	 */
+    /* 分配socket结构 */
 	sock = sock_alloc();
 	if (!sock) {
 		net_warn_ratelimited("socket: no more sockets\n");
@@ -1245,6 +1248,7 @@ int __sock_create(struct net *net, int family, int type, int protocol,
 	/* Now protected by module ref count */
 	rcu_read_unlock();
 
+    /* 调用指定实现的地址族create函数,ip的就是inet_create */
 	err = pf->create(net, sock, protocol, kern);
 	if (err < 0)
 		goto out_module_put;
@@ -1315,10 +1319,12 @@ SYSCALL_DEFINE3(socket, int, family, int, type, int, protocol)
 	if (SOCK_NONBLOCK != O_NONBLOCK && (flags & SOCK_NONBLOCK))
 		flags = (flags & ~SOCK_NONBLOCK) | O_NONBLOCK;
 
+    /* 创建socket结构 */
 	retval = sock_create(family, type, protocol, &sock);
 	if (retval < 0)
 		goto out;
 
+    /* 与文件描述符对应起来 */
 	retval = sock_map_fd(sock, flags & (O_CLOEXEC | O_NONBLOCK));
 	if (retval < 0)
 		goto out_release;
@@ -1451,14 +1457,17 @@ SYSCALL_DEFINE3(bind, int, fd, struct sockaddr __user *, umyaddr, int, addrlen)
 	struct sockaddr_storage address;
 	int err, fput_needed;
 
+    /* 根据fd文件描述符找到socket结构 */
 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
 	if (sock) {
+        /* 将sock_addr从用户态拷贝到内核态 */
 		err = move_addr_to_kernel(umyaddr, addrlen, &address);
 		if (err >= 0) {
 			err = security_socket_bind(sock,
 						   (struct sockaddr *)&address,
 						   addrlen);
 			if (!err)
+            /* 调用bind函数 */
 				err = sock->ops->bind(sock,
 						      (struct sockaddr *)
 						      &address, addrlen);
@@ -1480,6 +1489,7 @@ SYSCALL_DEFINE2(listen, int, fd, int, backlog)
 	int err, fput_needed;
 	int somaxconn;
 
+    /* 根据fd找到socket结构 */
 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
 	if (sock) {
 		somaxconn = sock_net(sock->sk)->core.sysctl_somaxconn;
@@ -1488,6 +1498,7 @@ SYSCALL_DEFINE2(listen, int, fd, int, backlog)
 
 		err = security_socket_listen(sock, backlog);
 		if (!err)
+        /* 调用实现的listen函数 */
 			err = sock->ops->listen(sock, backlog);
 
 		fput_light(sock->file, fput_needed);
@@ -1521,11 +1532,13 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
 	if (SOCK_NONBLOCK != O_NONBLOCK && (flags & SOCK_NONBLOCK))
 		flags = (flags & ~SOCK_NONBLOCK) | O_NONBLOCK;
 
+    /* 根据fd找到原来的socket */
 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
 	if (!sock)
 		goto out;
 
 	err = -ENFILE;
+    /* 基于原来的socket创建新socket，即连接的socket */
 	newsock = sock_alloc();
 	if (!newsock)
 		goto out_put;
@@ -1539,12 +1552,14 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
 	 */
 	__module_get(newsock->ops->owner);
 
+    /* 创建了新的fd */
 	newfd = get_unused_fd_flags(flags);
 	if (unlikely(newfd < 0)) {
 		err = newfd;
 		sock_release(newsock);
 		goto out_put;
 	}
+    /* 创建新的file,关联到新sock */
 	newfile = sock_alloc_file(newsock, flags, sock->sk->sk_prot_creator->name);
 	if (IS_ERR(newfile)) {
 		err = PTR_ERR(newfile);

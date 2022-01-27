@@ -5792,6 +5792,7 @@ discard:
 			tcp_drop(sk, skb);
 			return 0;
 		} else {
+            /* 发送ACK-ACK */
 			tcp_send_ack(sk);
 		}
 		return -1;
@@ -5988,6 +5989,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
 			tcp_init_buffer_space(sk);
 		}
 		smp_mb();
+        /* 三次握手结束 */
 		tcp_set_state(sk, TCP_ESTABLISHED);
 		sk->sk_state_change(sk);
 
@@ -6401,6 +6403,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
 		fastopen_sk = tcp_try_fastopen(sk, skb, req, &foc, dst);
 	}
 	if (fastopen_sk) {
+        /* 发送synack->tcp_v4_send_synack */
 		af_ops->send_synack(fastopen_sk, dst, &fl, req,
 				    &foc, TCP_SYNACK_FASTOPEN);
 		/* Add the child socket directly into the accept queue */

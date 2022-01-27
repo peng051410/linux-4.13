@@ -172,6 +172,7 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
 	orig_sport = inet->inet_sport;
 	orig_dport = usin->sin_port;
 	fl4 = &inet->cork.fl.u.ip4;
+    /* 路由选择,找源地址，从哪个网口出 */
 	rt = ip_route_connect(fl4, nexthop, inet->inet_saddr,
 			      RT_CONN_FLAGS(sk), sk->sk_bound_dev_if,
 			      IPPROTO_TCP,
@@ -217,6 +218,7 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
 	 * lock select source port, enter ourselves into the hash tables and
 	 * complete initialization after this.
 	 */
+    /* 设置socket状态为TCP_SYN_SENT */
 	tcp_set_state(sk, TCP_SYN_SENT);
 	err = inet_hash_connect(tcp_death_row, sk);
 	if (err)
@@ -238,6 +240,7 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
 
 	if (likely(!tp->repair)) {
 		if (!tp->write_seq)
+        /* 初始化seq号 */
 			tp->write_seq = secure_tcp_seq(inet->inet_saddr,
 						       inet->inet_daddr,
 						       inet->inet_sport,
@@ -254,6 +257,7 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
 	if (err)
 		goto failure;
 
+    /* 进行发送 */
 	err = tcp_connect(sk);
 
 	if (err)
@@ -1480,6 +1484,7 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
 	} else
 		sock_rps_save_rxhash(sk, skb);
 
+    /* 接收状态操作 */
 	if (tcp_rcv_state_process(sk, skb)) {
 		rsk = sk;
 		goto reset;
@@ -1760,6 +1765,7 @@ process:
 	skb->dev = NULL;
 
 	if (sk->sk_state == TCP_LISTEN) {
+        /* 做接收 */
 		ret = tcp_v4_do_rcv(sk, skb);
 		goto put_and_return;
 	}
@@ -2422,6 +2428,7 @@ void tcp4_proc_exit(void)
 }
 #endif /* CONFIG_PROC_FS */
 
+/* sock之下内核协议栈的动作 */
 struct proto tcp_prot = {
 	.name			= "TCP",
 	.owner			= THIS_MODULE,

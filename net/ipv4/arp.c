@@ -274,6 +274,7 @@ static int arp_constructor(struct neighbour *neigh)
 			memcpy(neigh->ha, dev->broadcast, dev->addr_len);
 		}
 
+        /* 定义arp的操作 */
 		if (dev->header_ops->cache)
 			neigh->ops = &arp_hh_ops;
 		else
@@ -307,11 +308,13 @@ static void arp_send_dst(int type, int ptype, __be32 dest_ip,
 	if (dev->flags & IFF_NOARP)
 		return;
 
+    /* 创建并发送一个ARP包 */
 	skb = arp_create(type, ptype, dest_ip, dev, src_ip,
 			 dest_hw, src_hw, target_hw);
 	if (!skb)
 		return;
 
+    /* 结果放在dst_entry中 */
 	skb_dst_set(skb, dst_clone(dst));
 	arp_xmit(skb);
 }

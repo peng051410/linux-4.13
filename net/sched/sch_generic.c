@@ -179,6 +179,7 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
 	if (likely(skb)) {
 		HARD_TX_LOCK(dev, txq, smp_processor_id());
 		if (!netif_xmit_frozen_or_stopped(txq))
+        /* 进行发送 */
 			skb = dev_hard_start_xmit(skb, dev, txq, &ret);
 
 		HARD_TX_UNLOCK(dev, txq);
@@ -234,6 +235,7 @@ static inline int qdisc_restart(struct Qdisc *q, int *packets)
 	bool validate;
 
 	/* Dequeue packet */
+    /* 将网络包从Qdisc取下来 */
 	skb = dequeue_skb(q, &validate, packets);
 	if (unlikely(!skb))
 		return 0;
@@ -242,6 +244,7 @@ static inline int qdisc_restart(struct Qdisc *q, int *packets)
 	dev = qdisc_dev(q);
 	txq = skb_get_tx_queue(dev, skb);
 
+    /* 进行发送 */
 	return sch_direct_xmit(skb, q, dev, txq, root_lock, validate);
 }
 
@@ -250,6 +253,7 @@ void __qdisc_run(struct Qdisc *q)
 	int quota = dev_tx_weight;
 	int packets;
 
+    /* qdisc_restart用于数据的发送 */
 	while (qdisc_restart(q, &packets)) {
 		/*
 		 * Ordered by possible occurrence: Postpone processing if
@@ -258,6 +262,7 @@ void __qdisc_run(struct Qdisc *q)
 		 */
 		quota -= packets;
 		if (quota <= 0 || need_resched()) {
+            /* 控制网络包的发送速度，重新调度 */
 			__netif_schedule(q);
 			break;
 		}

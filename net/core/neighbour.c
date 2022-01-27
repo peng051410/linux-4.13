@@ -319,10 +319,12 @@ static struct neighbour *neigh_alloc(struct neigh_table *tbl, struct net_device 
 		}
 	}
 
+    /* 分配并进行初始化 */
 	n = kzalloc(tbl->entry_size + dev->neigh_priv_len, GFP_ATOMIC);
 	if (!n)
 		goto out_entries;
 
+    /* arp_queue是包含所有上层通过ARP获取MAC地址的任务 */
 	__skb_queue_head_init(&n->arp_queue);
 	rwlock_init(&n->lock);
 	seqlock_init(&n->ha_lock);
@@ -331,6 +333,7 @@ static struct neighbour *neigh_alloc(struct neigh_table *tbl, struct net_device 
 	n->output	  = neigh_blackhole;
 	seqlock_init(&n->hh.hh_lock);
 	n->parms	  = neigh_parms_clone(&tbl->parms);
+    /* 设置timer定时器,定时调用neigh_time_handler来处理ARP任务 */
 	setup_timer(&n->timer, neigh_timer_handler, (unsigned long)n);
 
 	NEIGH_CACHE_STAT_INC(tbl, allocs);
@@ -490,6 +493,7 @@ struct neighbour *__neigh_create(struct neigh_table *tbl, const void *pkey,
 	u32 hash_val;
 	int key_len = tbl->key_len;
 	int error;
+    /* 创建neighbour，用来维护MAC地址和ARP相关的信息 */
 	struct neighbour *n1, *rc, *n = neigh_alloc(tbl, dev);
 	struct neigh_hash_table *nht;
 
@@ -503,6 +507,7 @@ struct neighbour *__neigh_create(struct neigh_table *tbl, const void *pkey,
 	dev_hold(dev);
 
 	/* Protocol specific setup. */
+    /* 调用arp_tbl的构造函数，即arp_constructor */
 	if (tbl->constructor &&	(error = tbl->constructor(n)) < 0) {
 		rc = ERR_PTR(error);
 		goto out_neigh_release;
@@ -532,6 +537,7 @@ struct neighbour *__neigh_create(struct neigh_table *tbl, const void *pkey,
 	if (atomic_read(&tbl->entries) > (1 << nht->hash_shift))
 		nht = neigh_hash_grow(tbl, nht->hash_shift + 1);
 
+    /* 计算hash值 */
 	hash_val = tbl->hash(pkey, dev, nht->hash_rnd) >> (32 - nht->hash_shift);
 
 	if (n->parms->dead) {
@@ -558,6 +564,7 @@ struct neighbour *__neigh_create(struct neigh_table *tbl, const void *pkey,
 	rcu_assign_pointer(n->next,
 			   rcu_dereference_protected(nht->hash_buckets[hash_val],
 						     lockdep_is_held(&tbl->lock)));
+    /* 将neighbour结构放到hash表中 */
 	rcu_assign_pointer(nht->hash_buckets[hash_val], n);
 	write_unlock_bh(&tbl->lock);
 	neigh_dbg(2, "neigh %p is created\n", n);
@@ -890,11 +897,13 @@ static void neigh_invalidate(struct neighbour *neigh)
 static void neigh_probe(struct neighbour *neigh)
 	__releases(neigh->lock)
 {
+    /* 取出ARP包 */
 	struct sk_buff *skb = skb_peek_tail(&neigh->arp_queue);
 	/* keep skb alive even if arp_queue overflows */
 	if (skb)
 		skb = skb_clone(skb, GFP_ATOMIC);
 	write_unlock(&neigh->lock);
+    /* 调用ARP的arp_solicit */
 	if (neigh->ops->solicit)
 		neigh->ops->solicit(neigh, skb);
 	atomic_inc(&neigh->probes);
@@ -992,6 +1001,7 @@ out:
 int __neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
 {
 	int rc;
+    /* 是否马上发送 */
 	bool immediate_probe = false;
 
 	write_lock_bh(&neigh->lock);
@@ -1014,6 +1024,7 @@ int __neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
 			next = now + max(NEIGH_VAR(neigh->parms, RETRANS_TIME),
 					 HZ/2);
 			neigh_add_timer(neigh, next);
+            /* 马上激活ARP*/
 			immediate_probe = true;
 		} else {
 			neigh->nud_state = NUD_FAILED;
@@ -1027,6 +1038,7 @@ int __neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
 		neigh_dbg(2, "neigh %p is delayed\n", neigh);
 		neigh->nud_state = NUD_DELAY;
 		neigh->updated = jiffies;
+        /* 延迟激活 */
 		neigh_add_timer(neigh, jiffies +
 				NEIGH_VAR(neigh->parms, DELAY_PROBE_TIME));
 	}
@@ -1051,6 +1063,7 @@ int __neigh_event_send(struct neighbour *neigh, struct sk_buff *skb)
 		rc = 1;
 	}
 out_unlock_bh:
+    /* 马上激活 */
 	if (immediate_probe)
 		neigh_probe(neigh);
 	else
@@ -1331,6 +1344,7 @@ int neigh_resolve_output(struct neighbour *neigh, struct sk_buff *skb)
 {
 	int rc = 0;
 
+    /* 触发事件，看能否激活ARP */
 	if (!neigh_event_send(neigh, skb)) {
 		int err;
 		struct net_device *dev = neigh->dev;
@@ -1347,6 +1361,7 @@ int neigh_resolve_output(struct neighbour *neigh, struct sk_buff *skb)
 		} while (read_seqretry(&neigh->ha_lock, seq));
 
 		if (err >= 0)
+        /* 发送二层网络包 */
 			rc = dev_queue_xmit(skb);
 		else
 			goto out_kfree_skb;
@@ -3273,4 +3288,3 @@ static int __init neigh_init(void)
 }
 
 subsys_initcall(neigh_init);
-
