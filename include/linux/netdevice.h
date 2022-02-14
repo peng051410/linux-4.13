@@ -2750,6 +2750,7 @@ extern int netdev_flow_limit_table_len;
  * Incoming packets are placed on per-CPU queues
  */
 struct softnet_data {
+    /* 用于网络包的接收 */
 	struct list_head	poll_list;
 	struct sk_buff_head	process_queue;
 
@@ -2763,6 +2764,7 @@ struct softnet_data {
 #ifdef CONFIG_NET_FLOW_LIMIT
 	struct sd_flow_limit __rcu *flow_limit;
 #endif
+    /* 用于网络包的发送 */
 	struct Qdisc		*output_queue;
 	struct Qdisc		**output_queue_tailp;
 	struct sk_buff		*completion_queue;

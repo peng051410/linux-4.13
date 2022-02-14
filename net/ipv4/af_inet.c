@@ -804,6 +804,7 @@ int inet_recvmsg(struct socket *sock, struct msghdr *msg, size_t size,
 
 	sock_rps_record_flow(sk);
 
+    /* sk_prot 的 recvmsg 方法, tcp_recvmsg */
 	err = sk->sk_prot->recvmsg(sk, msg, size, flags & MSG_DONTWAIT,
 				   flags & ~MSG_DONTWAIT, &addr_len);
 	if (err >= 0)
@@ -1823,6 +1824,7 @@ static int __init inet_init(void)
 
 	sock_skb_cb_check_size(sizeof(struct inet_skb_parm));
 
+    /* TCP处理函数 */
 	rc = proto_register(&tcp_prot, 1);
 	if (rc)
 		goto out;

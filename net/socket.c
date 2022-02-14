@@ -789,6 +789,7 @@ EXPORT_SYMBOL_GPL(__sock_recv_ts_and_drops);
 static inline int sock_recvmsg_nosec(struct socket *sock, struct msghdr *msg,
 				     int flags)
 {
+    /* 调用inet_recvmsg，即inet_stream_ops的inet_recvmsg */
 	return sock->ops->recvmsg(sock, msg, msg_data_left(msg), flags);
 }
 
@@ -859,6 +860,7 @@ static ssize_t sock_splice_read(struct file *file, loff_t *ppos,
 static ssize_t sock_read_iter(struct kiocb *iocb, struct iov_iter *to)
 {
 	struct file *file = iocb->ki_filp;
+    /* 获取sock结构 */
 	struct socket *sock = file->private_data;
 	struct msghdr msg = {.msg_iter = *to,
 			     .msg_iocb = iocb};
@@ -873,6 +875,7 @@ static ssize_t sock_read_iter(struct kiocb *iocb, struct iov_iter *to)
 	if (!iov_iter_count(to))	/* Match SYS5 behaviour */
 		return 0;
 
+    /* 调用sock_recvmsg */
 	res = sock_recvmsg(sock, &msg, msg.msg_flags);
 	*to = msg.msg_iter;
 	return res;

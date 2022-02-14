@@ -125,6 +125,7 @@ static const struct pci_error_handlers ixgb_err_handler = {
 static struct pci_driver ixgb_driver = {
 	.name     = ixgb_driver_name,
 	.id_table = ixgb_pci_tbl,
+    /* 在驱动初始化时被调用 */
 	.probe    = ixgb_probe,
 	.remove   = ixgb_remove,
 	.err_handler = &ixgb_err_handler
@@ -235,6 +236,7 @@ ixgb_up(struct ixgb_adapter *adapter)
 		/* proceed to try to request regular interrupt */
 	}
 
+    /* 注册中断处理函数 */
 	err = request_irq(adapter->pdev->irq, ixgb_intr, irq_flags,
 	                  netdev->name, netdev);
 	if (err) {
@@ -424,6 +426,7 @@ ixgb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	pci_set_master(pdev);
 
+    /* 创建结构表示这个网络设备 */
 	netdev = alloc_etherdev(sizeof(struct ixgb_adapter));
 	if (!netdev) {
 		err = -ENOMEM;
@@ -457,6 +460,7 @@ ixgb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	netdev->netdev_ops = &ixgb_netdev_ops;
 	ixgb_set_ethtool_ops(netdev);
 	netdev->watchdog_timeo = 5 * HZ;
+    /* 注册一个轮循的poll函数ixgb_clean */
 	netif_napi_add(netdev, &adapter->napi, ixgb_clean, 64);
 
 	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
@@ -628,7 +632,7 @@ ixgb_sw_init(struct ixgb_adapter *adapter)
  * handler is registered with the OS, the watchdog timer is started,
  * and the stack is notified that the interface is ready.
  **/
-
+/* 网卡被激活时调用 */
 static int
 ixgb_open(struct net_device *netdev)
 {
@@ -1757,7 +1761,7 @@ ixgb_update_stats(struct ixgb_adapter *adapter)
  * @irq: interrupt number
  * @data: pointer to a network interface device structure
  **/
-
+/* 中断处理函数 */
 static irqreturn_t
 ixgb_intr(int irq, void *data)
 {
@@ -1780,6 +1784,7 @@ ixgb_intr(int irq, void *data)
 		*/
 
 		IXGB_WRITE_REG(&adapter->hw, IMC, ~0);
+        /* NAPI */
 		__napi_schedule(&adapter->napi);
 	}
 	return IRQ_HANDLED;
@@ -2041,6 +2046,7 @@ ixgb_clean_rx_irq(struct ixgb_adapter *adapter, int *work_done, int work_to_do)
 			goto rxdesc_done;
 		}
 
+        /* 将buffer_info拷贝到sk_buff */
 		ixgb_check_copybreak(&adapter->napi, buffer_info, length, &skb);
 
 		/* Good Receive */
@@ -2054,6 +2060,7 @@ ixgb_clean_rx_irq(struct ixgb_adapter *adapter, int *work_done, int work_to_do)
 			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
 				       le16_to_cpu(rx_desc->special));
 
+        /* 进入内核网络协议栈 */
 		netif_receive_skb(skb);
 
 rxdesc_done:

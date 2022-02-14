@@ -1450,6 +1450,7 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
 {
 	struct sock *rsk;
 
+    /* 连接已经建立 */
 	if (sk->sk_state == TCP_ESTABLISHED) { /* Fast path */
 		struct dst_entry *dst = sk->sk_rx_dst;
 
@@ -1462,6 +1463,7 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
 				sk->sk_rx_dst = NULL;
 			}
 		}
+        /* 处理建立连接情况 */
 		tcp_rcv_established(sk, skb, tcp_hdr(skb), skb->len);
 		return 0;
 	}
@@ -1484,7 +1486,7 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
 	} else
 		sock_rps_save_rxhash(sk, skb);
 
-    /* 接收状态操作 */
+    /* 其它状态，接收状态操作 */
 	if (tcp_rcv_state_process(sk, skb)) {
 		rsk = sk;
 		goto reset;
@@ -1557,6 +1559,7 @@ bool tcp_prequeue(struct sock *sk, struct sk_buff *skb)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 
+    /* 是不是要低时延地处理网络包 */
 	if (sysctl_tcp_low_latency || !tp->ucopy.task)
 		return false;
 
@@ -1681,6 +1684,7 @@ int tcp_v4_rcv(struct sk_buff *skb)
 		goto csum_error;
 
 	th = (const struct tcphdr *)skb->data;
+    /* 获取TCP的头，开始处理TCP层 */
 	iph = ip_hdr(skb);
 	/* This is tricky : We move IPCB at its correct location into TCP_SKB_CB()
 	 * barrier() makes sure compiler wont play fool^Waliasing games.
@@ -1699,12 +1703,14 @@ int tcp_v4_rcv(struct sk_buff *skb)
 	TCP_SKB_CB(skb)->sacked	 = 0;
 
 lookup:
+    /* 查找sock结构,里面维护着TCP状态信息 */
 	sk = __inet_lookup_skb(&tcp_hashinfo, skb, __tcp_hdrlen(th), th->source,
 			       th->dest, &refcounted);
 	if (!sk)
 		goto no_tcp_socket;
 
 process:
+    /* 连接结束 */
 	if (sk->sk_state == TCP_TIME_WAIT)
 		goto do_time_wait;
 
@@ -1775,9 +1781,13 @@ process:
 	bh_lock_sock_nested(sk);
 	tcp_segs_in(tcp_sk(sk), skb);
 	ret = 0;
+    /* 是否有用户进程在等待读数据 */
 	if (!sock_owned_by_user(sk)) {
+        /* 放入prequeue */
 		if (!tcp_prequeue(sk, skb))
+            /* 需要短时延,sysctl_tcp_low_latency=1 */
 			ret = tcp_v4_do_rcv(sk, skb);
+        /* 内核栈放入backlog */
 	} else if (tcp_add_backlog(sk, skb)) {
 		goto discard_and_relse;
 	}

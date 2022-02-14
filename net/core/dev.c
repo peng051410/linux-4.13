@@ -407,6 +407,7 @@ void dev_add_pack(struct packet_type *pt)
 	struct list_head *head = ptype_head(pt);
 
 	spin_lock(&ptype_lock);
+    /* 添加协议 */
 	list_add_rcu(&pt->list, head);
 	spin_unlock(&ptype_lock);
 }
@@ -1874,10 +1875,12 @@ static inline void deliver_ptype_list_skb(struct sk_buff *skb,
 {
 	struct packet_type *ptype, *pt_prev = *pt;
 
+    /* 遍历协议表进行匹配，这些协议是在dev_add_pack调用中被加到链表里面的 */
 	list_for_each_entry_rcu(ptype, ptype_list, list) {
 		if (ptype->type != type)
 			continue;
 		if (pt_prev)
+        /* 调用 */
 			deliver_skb(skb, pt_prev, orig_dev);
 		pt_prev = ptype;
 	}
@@ -3550,7 +3553,9 @@ int dev_tx_weight __read_mostly = 64;
 static inline void ____napi_schedule(struct softnet_data *sd,
 				     struct napi_struct *napi)
 {
+    /* 将结构放到poll_list中，用来延迟处理 */
 	list_add_tail(&napi->poll_list, &sd->poll_list);
+    /* 软中断，触发后续延迟处理操作,对应net_rx_action */
 	__raise_softirq_irqoff(NET_RX_SOFTIRQ);
 }
 
@@ -4294,6 +4299,7 @@ skip_classify:
 						   PTYPE_HASH_MASK]);
 	}
 
+    /* 匹配协议 */
 	deliver_ptype_list_skb(skb, &pt_prev, orig_dev, type,
 			       &orig_dev->ptype_specific);
 
@@ -4306,6 +4312,7 @@ skip_classify:
 		if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
 			goto drop;
 		else
+        /* 调用ip_packet_type的func函数 */
 			ret = pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
 	} else {
 drop:
@@ -5553,6 +5560,7 @@ out_unlock:
 
 static __latent_entropy void net_rx_action(struct softirq_action *h)
 {
+    /* 得到softnet_data结构 */
 	struct softnet_data *sd = this_cpu_ptr(&softnet_data);
 	unsigned long time_limit = jiffies +
 		usecs_to_jiffies(netdev_budget_usecs);
@@ -5573,7 +5581,9 @@ static __latent_entropy void net_rx_action(struct softirq_action *h)
 			break;
 		}
 
+        /* 找到设备 */
 		n = list_first_entry(&list, struct napi_struct, poll_list);
+        /* 轮循设备,调用注册的函数ixgb_clean */
 		budget -= napi_poll(n, &repoll);
 
 		/* If softirq window is exhausted then punt.

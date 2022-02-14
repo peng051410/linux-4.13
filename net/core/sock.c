@@ -2211,6 +2211,7 @@ static void __release_sock(struct sock *sk)
 {
 	struct sk_buff *skb, *next;
 
+    /* 依次处理网络包 */
 	while ((skb = sk->sk_backlog.head) != NULL) {
 		sk->sk_backlog.head = sk->sk_backlog.tail = NULL;
 
@@ -2713,6 +2714,7 @@ void release_sock(struct sock *sk)
 {
 	spin_lock_bh(&sk->sk_lock.slock);
 	if (sk->sk_backlog.tail)
+        /* 调用 */
 		__release_sock(sk);
 
 	/* Warning : release_cb() might need to release sk ownership,

@@ -475,6 +475,7 @@ static inline int dst_output(struct net *net, struct sock *sk, struct sk_buff *s
 /* Input packet from network to transport.  */
 static inline int dst_input(struct sk_buff *skb)
 {
+    /* 调用 ip_local_deliver */
 	return skb_dst(skb)->input(skb);
 }
 

@@ -1729,6 +1729,7 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int nonblock,
 
 	target = sock_rcvlowat(sk, flags & MSG_WAITALL, len);
 
+    /* 不断读取网络包 */
 	do {
 		u32 offset;
 
@@ -1762,6 +1763,7 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int nonblock,
 				offset--;
 			}
 			if (offset < skb->len)
+                /* 先处理sk_receive_queue,找到了网络包则跳转执行 */
 				goto found_ok_skb;
 			if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
 				goto found_fin_ok;
@@ -1818,6 +1820,7 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int nonblock,
 
 		tcp_cleanup_rbuf(sk, copied);
 
+        /* 处理低时延 */
 		if (!sysctl_tcp_low_latency && tp->ucopy.task == user_recv) {
 			/* Install new reader */
 			if (!user_recv && !(flags & (MSG_TRUNC | MSG_PEEK))) {
@@ -1858,6 +1861,7 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int nonblock,
 			 * unfortunately.
 			 */
 			if (!skb_queue_empty(&tp->ucopy.prequeue))
+                /* 不需要低时延,处理prequeue */
 				goto do_prequeue;
 
 			/* __ Set realtime policy in scheduler __ */
@@ -1865,9 +1869,11 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int nonblock,
 
 		if (copied >= target) {
 			/* Do not sleep, just process backlog. */
+            /* 处理backlog队列 */
 			release_sock(sk);
 			lock_sock(sk);
 		} else {
+            /* 没有网络处理，进入等待 */
 			sk_wait_data(sk, &timeo, last);
 		}
 
@@ -1930,6 +1936,7 @@ do_prequeue:
 		}
 
 		if (!(flags & MSG_TRUNC)) {
+            /* 将网络包拷贝到用户进程 */
 			err = skb_copy_datagram_msg(skb, offset, msg, used);
 			if (err) {
 				/* Exception. Bailout! */

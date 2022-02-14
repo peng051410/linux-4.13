@@ -195,6 +195,7 @@ static int ip_local_deliver_finish(struct net *net, struct sock *sk, struct sk_b
 
 	rcu_read_lock();
 	{
+        /* 包含的协议，为TCP协议 */
 		int protocol = ip_hdr(skb)->protocol;
 		const struct net_protocol *ipprot;
 		int raw;
@@ -202,7 +203,9 @@ static int ip_local_deliver_finish(struct net *net, struct sock *sk, struct sk_b
 	resubmit:
 		raw = raw_local_deliver(skb, protocol);
 
+        /* 找到TCP协议的处理函数，inet_protos在inet_init函数进行初始化 */
 		ipprot = rcu_dereference(inet_protos[protocol]);
+        /* 取的是tcp_protocol */
 		if (ipprot) {
 			int ret;
 
@@ -213,6 +216,7 @@ static int ip_local_deliver_finish(struct net *net, struct sock *sk, struct sk_b
 				}
 				nf_reset(skb);
 			}
+            /* 调用handler函数，即 tcp_v4_rcv */
 			ret = ipprot->handler(skb);
 			if (ret < 0) {
 				protocol = -ret;
@@ -249,11 +253,14 @@ int ip_local_deliver(struct sk_buff *skb)
 	 */
 	struct net *net = dev_net(skb->dev);
 
+    /* 如果分段 */
 	if (ip_is_fragment(ip_hdr(skb))) {
+        /* 进行组合 */
 		if (ip_defrag(net, skb, IP_DEFRAG_LOCAL_DELIVER))
 			return 0;
 	}
 
+    /* 处理iptables的Input链，再执行 ip_local_deliver_finish */
 	return NF_HOOK(NFPROTO_IPV4, NF_INET_LOCAL_IN,
 		       net, NULL, skb, skb->dev, NULL,
 		       ip_local_deliver_finish);
@@ -365,6 +372,7 @@ static int ip_rcv_finish(struct net *net, struct sock *sk, struct sk_buff *skb)
 	if (iph->ihl > 5 && ip_rcv_options(skb))
 		goto drop;
 
+    /* 得到网络包路由表 */
 	rt = skb_rtable(skb);
 	if (rt->rt_type == RTN_MULTICAST) {
 		__IP_UPD_PO_STATS(net, IPSTATS_MIB_INMCAST, skb->len);
@@ -394,6 +402,7 @@ static int ip_rcv_finish(struct net *net, struct sock *sk, struct sk_buff *skb)
 			goto drop;
 	}
 
+    /* 调用 */
 	return dst_input(skb);
 
 drop:
@@ -404,6 +413,7 @@ drop:
 /*
  * 	Main IP Receive routine.
  */
+/* 协议处理从二层到三层 */
 int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, struct net_device *orig_dev)
 {
 	const struct iphdr *iph;
@@ -429,6 +439,7 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, 
 	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
 		goto inhdr_error;
 
+    /* 得到IP头 */
 	iph = ip_hdr(skb);
 
 	/*
@@ -485,6 +496,7 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, 
 	/* Must drop socket now because of tproxy. */
 	skb_orphan(skb);
 
+    /* 先执行iptables的规则，然后调用ip_rcv_finish */
 	return NF_HOOK(NFPROTO_IPV4, NF_INET_PRE_ROUTING,
 		       net, NULL, skb, dev, NULL,
 		       ip_rcv_finish);

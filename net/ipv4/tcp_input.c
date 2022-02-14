@@ -4609,6 +4609,7 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
 	 *  Packets in sequence go to the receive queue.
 	 *  Out of sequence packets to the out_of_order_queue.
 	 */
+    /* 1.正好是期望的网络包 */
 	if (TCP_SKB_CB(skb)->seq == tp->rcv_nxt) {
 		if (tcp_receive_window(tp) == 0)
 			goto out_of_window;
@@ -4616,12 +4617,14 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
 		/* Ok. In sequence. In window. */
 		if (tp->ucopy.task == current &&
 		    tp->copied_seq == tp->rcv_nxt && tp->ucopy.len &&
+            /* 用户进程是否正在读取 */
 		    sock_owned_by_user(sk) && !tp->urg_data) {
 			int chunk = min_t(unsigned int, skb->len,
 					  tp->ucopy.len);
 
 			__set_current_state(TASK_RUNNING);
 
+            /* 将网络包拷贝给用户进程 */
 			if (!skb_copy_datagram_msg(skb, 0, tp->ucopy.msg, chunk)) {
 				tp->ucopy.len -= chunk;
 				tp->copied_seq += chunk;
@@ -4638,15 +4641,19 @@ queue_and_out:
 				else if (tcp_try_rmem_schedule(sk, skb, skb->truesize))
 					goto drop;
 			}
+            /* 用户进程没有等待或者未处理成功，再放入到sk_receive_queue */
 			eaten = tcp_queue_rcv(sk, skb, 0, &fragstolen);
 		}
+        /* 当前包接收成功后更新期待的下一个网络包 */
 		tcp_rcv_nxt_update(tp, TCP_SKB_CB(skb)->end_seq);
 		if (skb->len)
 			tcp_event_data_recv(sk, skb);
 		if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
 			tcp_fin(sk);
 
+        /* 判断一下乱序中的包是否也能处理 */
 		if (!RB_EMPTY_ROOT(&tp->out_of_order_queue)) {
+            /* 处理乱序队列中可以接上序号的包 */
 			tcp_ofo_queue(sk);
 
 			/* RFC2581. 4.2. SHOULD send immediate ACK, when
@@ -4668,9 +4675,11 @@ queue_and_out:
 		return;
 	}
 
+    /* 2. end_seq 不大于 rcv_nxt,即期望5，但收到了3 */
 	if (!after(TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt)) {
 		/* A retransmit, 2nd most common case.  Force an immediate ack. */
 		NET_INC_STATS(sock_net(sk), LINUX_MIB_DELAYEDACKLOST);
+        /* 立即发送一个ACK */
 		tcp_dsack_set(sk, TCP_SKB_CB(skb)->seq, TCP_SKB_CB(skb)->end_seq);
 
 out_of_window:
@@ -4682,11 +4691,13 @@ drop:
 	}
 
 	/* Out of window. F.e. zero window probe. */
+    /* 3. seq 不小于 rcv_nxt + tcp_receive_window，客户端发送太猛了 */
 	if (!before(TCP_SKB_CB(skb)->seq, tp->rcv_nxt + tcp_receive_window(tp)))
 		goto out_of_window;
 
 	tcp_enter_quickack_mode(sk);
 
+    /* 4. seq 小于 rcv_nxt，但是 end_seq 大于 rcv_nxt(新发送的)) */
 	if (before(TCP_SKB_CB(skb)->seq, tp->rcv_nxt)) {
 		/* Partial packet, seq < rcv_next < end_seq */
 		SOCK_DEBUG(sk, "partial packet: rcv_next %X seq %X - %X\n",
@@ -4703,6 +4714,7 @@ drop:
 		goto queue_and_out;
 	}
 
+    /* 到这就是乱序的包了，进入out_of_order_queue */
 	tcp_data_queue_ofo(sk, skb);
 }
 
@@ -5542,6 +5554,7 @@ step5:
 	tcp_urg(sk, skb, th);
 
 	/* step 7: process the segment text */
+    /* 调用,放入sk_receive_queue */
 	tcp_data_queue(sk, skb);
 
 	tcp_data_snd_check(sk);
