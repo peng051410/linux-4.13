@@ -6869,6 +6869,7 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 		}
 	}
 
+    /* 调用,内存重新加载 */
 	r = kvm_mmu_reload(vcpu);
 	if (unlikely(r)) {
 		goto cancel_injection;
@@ -6944,6 +6945,7 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 		vcpu->arch.switch_db_regs &= ~KVM_DEBUGREG_RELOAD;
 	}
 
+    /* 调用vmx_x86_ops的vmx_vcpu_run */
 	kvm_x86_ops->run(vcpu);
 
 	/*
@@ -7065,6 +7067,7 @@ static int vcpu_run(struct kvm_vcpu *vcpu)
 
 	for (;;) {
 		if (kvm_vcpu_running(vcpu)) {
+            /* 进入客户机模式 */
 			r = vcpu_enter_guest(vcpu);
 		} else {
 			r = vcpu_block(kvm, vcpu);
@@ -7087,12 +7090,14 @@ static int vcpu_run(struct kvm_vcpu *vcpu)
 
 		kvm_check_async_pf_completion(vcpu);
 
+        /* 对于信号的响应 */
 		if (signal_pending(current)) {
 			r = -EINTR;
 			vcpu->run->exit_reason = KVM_EXIT_INTR;
 			++vcpu->stat.signal_exits;
 			break;
 		}
+        /* 对于调度的响应 */
 		if (need_resched()) {
 			srcu_read_unlock(&kvm->srcu, vcpu->srcu_idx);
 			cond_resched();
@@ -7226,6 +7231,7 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run)
 	if (kvm_run->immediate_exit)
 		r = -EINTR;
 	else
+        /* 调用，里面是一个无限循环 */
 		r = vcpu_run(vcpu);
 
 out:
@@ -7669,6 +7675,7 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm,
 		"kvm: SMP vm created on host with unstable TSC; "
 		"guest TSC will not be reliable\n");
 
+    /* 调用X86的操作来创建CPU */
 	vcpu = kvm_x86_ops->vcpu_create(kvm, id);
 
 	return vcpu;

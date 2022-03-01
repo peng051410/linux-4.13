@@ -2946,10 +2946,12 @@ static int __direct_map(struct kvm_vcpu *vcpu, int write, int map_writable,
 	int emulate = 0;
 	gfn_t pseudo_gfn;
 
+    /* 判断页表的根是否存在 */
 	if (!VALID_PAGE(vcpu->arch.mmu.root_hpa))
 		return 0;
 
 	for_each_shadow_entry(vcpu, (u64)gfn << PAGE_SHIFT, iterator) {
+        /* 判断level相等，是页子节点，直接映射真正的物理页 */
 		if (iterator.level == level) {
 			emulate = mmu_set_spte(vcpu, iterator.sptep, ACC_ALL,
 					       write, level, gfn, pfn, prefault,
@@ -2960,11 +2962,13 @@ static int __direct_map(struct kvm_vcpu *vcpu, int write, int map_writable,
 		}
 
 		drop_large_spte(vcpu, iterator.sptep);
+        /* 页表项不存在则创建 */
 		if (!is_shadow_present_pte(*iterator.sptep)) {
 			u64 base_addr = iterator.addr;
 
 			base_addr &= PT64_LVL_ADDR_MASK(iterator.level);
 			pseudo_gfn = base_addr >> PAGE_SHIFT;
+            /* 得到保存的页表项页面，指向下一级 */
 			sp = kvm_mmu_get_page(vcpu, pseudo_gfn, iterator.addr,
 					      iterator.level - 1, 1, ACC_ALL);
 
@@ -3379,6 +3383,7 @@ static int mmu_alloc_direct_roots(struct kvm_vcpu *vcpu)
 	if (vcpu->arch.mmu.shadow_root_level == PT64_ROOT_LEVEL) {
 		spin_lock(&vcpu->kvm->mmu_lock);
 		make_mmu_pages_available(vcpu);
+        /* 分配kvm_mmu_page，存放顶级页表 */
 		sp = kvm_mmu_get_page(vcpu, 0, 0, PT64_ROOT_LEVEL, 1, ACC_ALL);
 		++sp->root_count;
 		spin_unlock(&vcpu->kvm->mmu_lock);
@@ -3502,6 +3507,7 @@ static int mmu_alloc_shadow_roots(struct kvm_vcpu *vcpu)
 static int mmu_alloc_roots(struct kvm_vcpu *vcpu)
 {
 	if (vcpu->arch.mmu.direct_map)
+    /* 使用EPT */
 		return mmu_alloc_direct_roots(vcpu);
 	else
 		return mmu_alloc_shadow_roots(vcpu);
@@ -3761,8 +3767,10 @@ static bool try_async_pf(struct kvm_vcpu *vcpu, bool prefault, gfn_t gfn,
 	struct kvm_memory_slot *slot;
 	bool async;
 
+    /* 根据客户机的物理地址对应的页号找到内存条 */
 	slot = kvm_vcpu_gfn_to_memslot(vcpu, gfn);
 	async = false;
+    /* 根据内存条找到pfn */
 	*pfn = __gfn_to_pfn_memslot(slot, gfn, false, &async, write, writable);
 	if (!async)
 		return false; /* *pfn has correct page already */
@@ -3830,6 +3838,7 @@ static int tdp_page_fault(struct kvm_vcpu *vcpu, gva_t gpa, u32 error_code,
 	int r;
 	int level;
 	bool force_pt_level;
+    /* 通过客户机地址获取客户端页号 */
 	gfn_t gfn = gpa >> PAGE_SHIFT;
 	unsigned long mmu_seq;
 	int write = error_code & PFERR_WRITE_MASK;
@@ -3860,6 +3869,7 @@ static int tdp_page_fault(struct kvm_vcpu *vcpu, gva_t gpa, u32 error_code,
 	mmu_seq = vcpu->kvm->mmu_notifier_seq;
 	smp_rmb();
 
+    /* 得到宿主的物理地址对应的页号 */
 	if (try_async_pf(vcpu, prefault, gfn, gpa, &pfn, write, &map_writable))
 		return 0;
 
@@ -3872,6 +3882,7 @@ static int tdp_page_fault(struct kvm_vcpu *vcpu, gva_t gpa, u32 error_code,
 	make_mmu_pages_available(vcpu);
 	if (likely(!force_pt_level))
 		transparent_hugepage_adjust(vcpu, &gfn, &pfn, &level);
+    /* 将客户机页号与真正的物理页号关联起来 */
 	r = __direct_map(vcpu, write, map_writable, level, gfn, pfn, prefault);
 	spin_unlock(&vcpu->kvm->mmu_lock);
 
@@ -4542,10 +4553,12 @@ int kvm_mmu_load(struct kvm_vcpu *vcpu)
 	if (r)
 		goto out;
 	r = mmu_alloc_roots(vcpu);
+    /* 构建页表根部 */
 	kvm_mmu_sync_roots(vcpu);
 	if (r)
 		goto out;
 	/* set_cr3() should ensure TLB has been flushed */
+    /* 刷新CR3 */
 	vcpu->arch.mmu.set_cr3(vcpu, vcpu->arch.mmu.root_hpa);
 out:
 	return r;
@@ -4822,6 +4835,7 @@ int kvm_mmu_page_fault(struct kvm_vcpu *vcpu, gva_t cr2, u64 error_code,
 			return r;
 	}
 
+    /* 调用page_fault,即tdp_page_fault */
 	r = vcpu->arch.mmu.page_fault(vcpu, cr2, lower_32_bits(error_code),
 				      false);
 	if (r < 0)

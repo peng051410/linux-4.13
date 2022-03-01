@@ -890,6 +890,7 @@ int __kvm_set_memory_region(struct kvm *kvm,
 	int r;
 	gfn_t base_gfn;
 	unsigned long npages;
+    /* 内核中kvm_memory_slot与用户态Slot对应 */
 	struct kvm_memory_slot *slot;
 	struct kvm_memory_slot old, new;
 	struct kvm_memslots *slots = NULL, *old_memslots;
@@ -921,6 +922,7 @@ int __kvm_set_memory_region(struct kvm *kvm,
 	if (mem->guest_phys_addr + mem->memory_size < mem->guest_phys_addr)
 		goto out;
 
+    /* 根据用户态slot号得到内核态slot结构 */
 	slot = id_to_memslot(__kvm_memslots(kvm, as_id), id);
 	base_gfn = mem->guest_phys_addr >> PAGE_SHIFT;
 	npages = mem->memory_size >> PAGE_SHIFT;
@@ -983,6 +985,7 @@ int __kvm_set_memory_region(struct kvm *kvm,
 	if (change == KVM_MR_CREATE) {
 		new.userspace_addr = mem->userspace_addr;
 
+        /* 创建内存条 */
 		if (kvm_arch_create_memslot(kvm, &new, npages))
 			goto out_free;
 	}
@@ -1032,6 +1035,7 @@ int __kvm_set_memory_region(struct kvm *kvm,
 	}
 
 	update_memslots(slots, &new);
+    /* 将新内存条放到kvm中 */
 	old_memslots = install_new_memslots(kvm, as_id, slots);
 
 	kvm_arch_commit_memory_region(kvm, mem, &old, &new, change);
@@ -1055,6 +1059,7 @@ int kvm_set_memory_region(struct kvm *kvm,
 	int r;
 
 	mutex_lock(&kvm->slots_lock);
+    /* 调用 */
 	r = __kvm_set_memory_region(kvm, mem);
 	mutex_unlock(&kvm->slots_lock);
 	return r;
@@ -1383,6 +1388,7 @@ static int hva_to_pfn_slow(unsigned long addr, bool *async, bool write_fault,
 
 	if (async) {
 		down_read(&current->mm->mmap_sem);
+        /* 得到物理页面 */
 		npages = get_user_page_nowait(addr, write_fault, page);
 		up_read(&current->mm->mmap_sem);
 	} else {
@@ -1409,6 +1415,7 @@ static int hva_to_pfn_slow(unsigned long addr, bool *async, bool write_fault,
 
 		npages = 1;
 	}
+    /* 物理页转化为物理页号 */
 	*pfn = page_to_pfn(page[0]);
 	return npages;
 }
@@ -1463,7 +1470,7 @@ static int hva_to_pfn_remapped(struct vm_area_struct *vma,
 	 * Whoever called remap_pfn_range is also going to call e.g.
 	 * unmap_mapping_range before the underlying pages are freed,
 	 * causing a call to our MMU notifier.
-	 */ 
+	 */
 	kvm_get_pfn(pfn);
 
 	*p_pfn = pfn;
@@ -1500,6 +1507,7 @@ static kvm_pfn_t hva_to_pfn(unsigned long addr, bool atomic, bool *async,
 	if (atomic)
 		return KVM_PFN_ERR_FAULT;
 
+    /* 调用 */
 	npages = hva_to_pfn_slow(addr, async, write_fault, writable, &pfn);
 	if (npages == 1)
 		return pfn;
@@ -1536,6 +1544,7 @@ kvm_pfn_t __gfn_to_pfn_memslot(struct kvm_memory_slot *slot, gfn_t gfn,
 			       bool atomic, bool *async, bool write_fault,
 			       bool *writable)
 {
+    /* 从客户机物理地址对应的页号得到宿主机虚拟地址hva */
 	unsigned long addr = __gfn_to_hva_many(slot, gfn, NULL, write_fault);
 
 	if (addr == KVM_HVA_ERR_RO_BAD) {
@@ -1556,6 +1565,7 @@ kvm_pfn_t __gfn_to_pfn_memslot(struct kvm_memory_slot *slot, gfn_t gfn,
 		writable = NULL;
 	}
 
+    /* 宿主机虚拟地址得到宿主机物理地址 */
 	return hva_to_pfn(addr, atomic, async, write_fault,
 			  writable);
 }
@@ -2383,6 +2393,7 @@ static struct file_operations kvm_vcpu_fops = {
  */
 static int create_vcpu_fd(struct kvm_vcpu *vcpu)
 {
+    /* KVM 的内核模块是一个文件,可以通过 ioctl 进行操作 */
 	return anon_inode_getfd("kvm-vcpu", &kvm_vcpu_fops, vcpu, O_RDWR | O_CLOEXEC);
 }
 
@@ -2432,6 +2443,7 @@ static int kvm_vm_ioctl_create_vcpu(struct kvm *kvm, u32 id)
 	kvm->created_vcpus++;
 	mutex_unlock(&kvm->lock);
 
+    /* 调用 */
 	vcpu = kvm_arch_vcpu_create(kvm, id);
 	if (IS_ERR(vcpu)) {
 		r = PTR_ERR(vcpu);
@@ -2458,6 +2470,7 @@ static int kvm_vm_ioctl_create_vcpu(struct kvm *kvm, u32 id)
 
 	/* Now it's all set up, let userspace reach it */
 	kvm_get_kvm(kvm);
+    /* 创建file，指向kvm_vcpu_fops */
 	r = create_vcpu_fd(vcpu);
 	if (r < 0) {
 		kvm_put_kvm(kvm);
@@ -2544,6 +2557,7 @@ static long kvm_vcpu_ioctl(struct file *filp,
 				synchronize_rcu();
 			put_pid(oldpid);
 		}
+        /* 虚拟机运行调用 */
 		r = kvm_arch_vcpu_ioctl_run(vcpu, vcpu->run);
 		trace_kvm_userspace_exit(vcpu->run->exit_reason, r);
 		break;
@@ -2936,6 +2950,7 @@ static long kvm_vm_ioctl(struct file *filp,
 		return -EIO;
 	switch (ioctl) {
 	case KVM_CREATE_VCPU:
+        /* 对KVM_CREATE_VCPU处理 */
 		r = kvm_vm_ioctl_create_vcpu(kvm, arg);
 		break;
 	case KVM_SET_USER_MEMORY_REGION: {
@@ -2946,6 +2961,7 @@ static long kvm_vm_ioctl(struct file *filp,
 						sizeof(kvm_userspace_mem)))
 			goto out;
 
+        /* 调用 */
 		r = kvm_vm_ioctl_set_memory_region(kvm, &kvm_userspace_mem);
 		break;
 	}
@@ -3134,6 +3150,7 @@ static long kvm_vm_compat_ioctl(struct file *filp,
 }
 #endif
 
+/* KVM文件操作 */
 static struct file_operations kvm_vm_fops = {
 	.release        = kvm_vm_release,
 	.unlocked_ioctl = kvm_vm_ioctl,
@@ -3149,6 +3166,7 @@ static int kvm_dev_ioctl_create_vm(unsigned long type)
 	struct kvm *kvm;
 	struct file *file;
 
+    /* 创建kvm结构，代表一个虚拟机 */
 	kvm = kvm_create_vm(type);
 	if (IS_ERR(kvm))
 		return PTR_ERR(kvm);
@@ -3159,11 +3177,13 @@ static int kvm_dev_ioctl_create_vm(unsigned long type)
 		return r;
 	}
 #endif
+    /* 创建描述符 */
 	r = get_unused_fd_flags(O_CLOEXEC);
 	if (r < 0) {
 		kvm_put_kvm(kvm);
 		return r;
 	}
+    /* 和file进行关 */
 	file = anon_inode_getfile("kvm-vm", &kvm_vm_fops, kvm, O_RDWR);
 	if (IS_ERR(file)) {
 		put_unused_fd(r);
@@ -3200,7 +3220,9 @@ static long kvm_dev_ioctl(struct file *filp,
 		r = KVM_API_VERSION;
 		break;
 	case KVM_CREATE_VM:
+        /* 创建虚拟机 */
 		r = kvm_dev_ioctl_create_vm(arg);
+        /* 创建完后只有一个结构 */
 		break;
 	case KVM_CHECK_EXTENSION:
 		r = kvm_vm_ioctl_check_extension_generic(NULL, arg);
@@ -3228,6 +3250,7 @@ out:
 	return r;
 }
 
+/* 定义的KVM操作，只定义了ioctl */
 static struct file_operations kvm_chardev_ops = {
 	.unlocked_ioctl = kvm_dev_ioctl,
 	.compat_ioctl   = kvm_dev_ioctl,

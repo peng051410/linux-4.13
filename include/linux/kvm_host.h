@@ -293,7 +293,9 @@ static inline int kvm_vcpu_exiting_guest_mode(struct kvm_vcpu *vcpu)
  */
 #define KVM_MEM_MAX_NR_PAGES ((1UL << 31) - 1)
 
+/* 内核态memory_slot */
 struct kvm_memory_slot {
+    /* //根据guest_phys_addr计算 */
 	gfn_t base_gfn;
 	unsigned long npages;
 	unsigned long *dirty_bitmap;
@@ -377,6 +379,7 @@ static inline int kvm_arch_vcpu_memslots_id(struct kvm_vcpu *vcpu)
  * memslots are not sorted by id anymore, please use id_to_memslot()
  * to get the memslot by its id.
  */
+/* 内核态slots */
 struct kvm_memslots {
 	u64 generation;
 	struct kvm_memory_slot memslots[KVM_MEM_SLOTS_NUM];
@@ -386,9 +389,11 @@ struct kvm_memslots {
 	int used_slots;
 };
 
+/* 内核态 */
 struct kvm {
 	spinlock_t mmu_lock;
 	struct mutex slots_lock;
+    /* 管理内存 */
 	struct mm_struct *mm; /* userspace tied to this vm */
 	struct kvm_memslots __rcu *memslots[KVM_ADDRESS_SPACE_NUM];
 	struct kvm_vcpu *vcpus[KVM_MAX_VCPUS];
