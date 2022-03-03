@@ -1035,6 +1035,7 @@ bool blk_mq_dispatch_rq_list(struct request_queue *q, struct list_head *list)
 			bd.last = !blk_mq_get_driver_tag(nxt, NULL, false);
 		}
 
+        /* 通过(blk_mq_make_request)调用过来,mq_ops(virtio_mq_ops) */
 		ret = q->mq_ops->queue_rq(hctx, &bd);
 		if (ret == BLK_STS_RESOURCE) {
 			blk_mq_put_driver_tag_hctx(hctx, rq);
@@ -2221,6 +2222,7 @@ struct request_queue *blk_mq_init_queue(struct blk_mq_tag_set *set)
 	if (!uninit_q)
 		return ERR_PTR(-ENOMEM);
 
+    /* 调用 */
 	q = blk_mq_init_allocated_queue(set, uninit_q);
 	if (IS_ERR(q))
 		blk_cleanup_queue(uninit_q);
@@ -2343,6 +2345,7 @@ struct request_queue *blk_mq_init_allocated_queue(struct blk_mq_tag_set *set,
 	INIT_LIST_HEAD(&q->requeue_list);
 	spin_lock_init(&q->requeue_lock);
 
+    /* 调用 */
 	blk_queue_make_request(q, blk_mq_make_request);
 
 	/*

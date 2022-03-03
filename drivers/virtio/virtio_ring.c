@@ -62,6 +62,7 @@ struct vring_desc_state {
 };
 
 struct vring_virtqueue {
+    /* 表示vring_virtqueue是virtqueue的扩展 */
 	struct virtqueue vq;
 
 	/* Actual memory layout for this queue */
@@ -299,6 +300,7 @@ static inline int virtqueue_add(struct virtqueue *_vq,
 	BUG_ON(total_sg > vq->vring.num);
 	BUG_ON(total_sg == 0);
 
+    /* free_head指向整个内存空闲列表的起始位 */
 	head = vq->free_head;
 
 	/* If the host supports indirect descriptor tables, and we have multiple
@@ -317,6 +319,7 @@ static inline int virtqueue_add(struct virtqueue *_vq,
 	} else {
 		indirect = false;
 		desc = vq->vring.desc;
+        /* i也指向空闲内存列表的起始位 */
 		i = head;
 		descs_used = total_sg;
 	}
@@ -341,6 +344,7 @@ static inline int virtqueue_add(struct virtqueue *_vq,
 			if (vring_mapping_error(vq, addr))
 				goto unmap_release;
 
+            /* 放数据操作，空闲指针移动 */
 			desc[i].flags = cpu_to_virtio16(_vq->vdev, VRING_DESC_F_NEXT);
 			desc[i].addr = cpu_to_virtio64(_vq->vdev, addr);
 			desc[i].len = cpu_to_virtio32(_vq->vdev, sg->length);
@@ -388,6 +392,7 @@ static inline int virtqueue_add(struct virtqueue *_vq,
 		vq->free_head = i;
 
 	/* Store token and indirect buffer state. */
+    /* 至此，从 head 到 i 之间的内存块，就是这次写入的全部数据。 */
 	vq->desc_state[head].data = data;
 	if (indirect)
 		vq->desc_state[head].indir_desc = desc;
@@ -396,6 +401,7 @@ static inline int virtqueue_add(struct virtqueue *_vq,
 
 	/* Put entry in available array (but don't update avail->idx until they
 	 * do sync). */
+    /* 计算avail, avail_idx_shadow为上一次的avail的位置 */
 	avail = vq->avail_idx_shadow & (vq->vring.num - 1);
 	vq->vring.avail->ring[avail] = cpu_to_virtio16(_vq->vdev, head);
 
@@ -599,6 +605,7 @@ bool virtqueue_notify(struct virtqueue *_vq)
 		return false;
 
 	/* Prod other side to tell it about changes. */
+    /* 调用(vp_notify) */
 	if (!vq->notify(_vq)) {
 		vq->broken = true;
 		return false;
@@ -736,7 +743,9 @@ void *virtqueue_get_buf_ctx(struct virtqueue *_vq, unsigned int *len,
 
 	/* detach_buf clears data, so grab it now. */
 	ret = vq->desc_state[i].data;
+    /* 放入空闲队列中,后续写入使用 */
 	detach_buf(vq, i, ctx);
+    /* 说明后端已经消费完数据 */
 	vq->last_used_idx++;
 	/* If we expect an interrupt for the next entry, tell host
 	 * by writing event index and flush out the write before
@@ -949,6 +958,7 @@ irqreturn_t vring_interrupt(int irq, void *_vq)
 
 	pr_debug("virtqueue callback for %p (%p)\n", vq, vq->vq.callback);
 	if (vq->vq.callback)
+    /* 调用callback(virtblk_done) */
 		vq->vq.callback(&vq->vq);
 
 	return IRQ_HANDLED;
@@ -1102,8 +1112,10 @@ struct virtqueue *vring_create_virtqueue(
 		return NULL;
 
 	queue_size_in_bytes = vring_size(num, vring_align);
+    /* 初始化vring结构来管理内存 */
 	vring_init(&vring, num, queue, vring_align);
 
+    /* 创建vring_virtqueue */
 	vq = __vring_new_virtqueue(index, vring, vdev, weak_barriers, context,
 				   notify, callback, name);
 	if (!vq) {

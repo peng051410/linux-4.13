@@ -166,6 +166,7 @@ void blk_queue_make_request(struct request_queue *q, make_request_fn *mfn)
 	 */
 	q->nr_requests = BLKDEV_MAX_RQ;
 
+    /* 设置make_request_fn为blk_mq_make_request，有请求，通过这个函数将请求queue中 */
 	q->make_request_fn = mfn;
 	blk_queue_dma_alignment(q, 511);
 	blk_queue_congestion_threshold(q);

@@ -327,6 +327,7 @@ static struct virtqueue *setup_vq(struct virtio_pci_device *vp_dev,
 	info->msix_vector = msix_vec;
 
 	/* create the vring */
+    /* 创建vring */
 	vq = vring_create_virtqueue(index, num,
 				    SMP_CACHE_BYTES, &vp_dev->vdev,
 				    true, true, ctx,
@@ -335,7 +336,9 @@ static struct virtqueue *setup_vq(struct virtio_pci_device *vp_dev,
 		return ERR_PTR(-ENOMEM);
 
 	/* activate the queue */
+    /* 给这个外部设备发指令来激活queue */
 	vp_iowrite16(virtqueue_get_vring_size(vq), &cfg->queue_size);
+    /* 下面为告知客户机的三个地址, qemu中，添加设备后，会调用(virtio_pci_device_plugged)，转到qemu */
 	vp_iowrite64_twopart(virtqueue_get_desc_addr(vq),
 			     &cfg->queue_desc_lo, &cfg->queue_desc_hi);
 	vp_iowrite64_twopart(virtqueue_get_avail_addr(vq),
@@ -396,6 +399,7 @@ static int vp_modern_find_vqs(struct virtio_device *vdev, unsigned nvqs,
 {
 	struct virtio_pci_device *vp_dev = to_vp_device(vdev);
 	struct virtqueue *vq;
+    /* 调用 */
 	int rc = vp_find_vqs(vdev, nvqs, vqs, callbacks, names, ctx, desc);
 
 	if (rc)

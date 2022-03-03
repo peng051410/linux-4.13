@@ -406,7 +406,9 @@ struct request_queue {
 	 */
 	struct request_list	root_rl;
 
+    /* 用于处理request */
 	request_fn_proc		*request_fn;
+    /* 用于生成request */
 	make_request_fn		*make_request_fn;
 	prep_rq_fn		*prep_rq_fn;
 	unprep_rq_fn		*unprep_rq_fn;

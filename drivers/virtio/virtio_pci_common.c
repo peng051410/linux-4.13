@@ -45,6 +45,7 @@ bool vp_notify(struct virtqueue *vq)
 {
 	/* we write the queue's selector into the notification register to
 	 * signal the other end */
+    /* 写入io会调用触发virtio_ioport_write，会调用(virtio_queue_notify),转到qemu */
 	iowrite16(vq->index, (void __iomem *)vq->priv);
 	return true;
 }
@@ -68,6 +69,7 @@ static irqreturn_t vp_vring_interrupt(int irq, void *opaque)
 
 	spin_lock_irqsave(&vp_dev->lock, flags);
 	list_for_each_entry(info, &vp_dev->virtqueues, node) {
+        /* 调用 */
 		if (vring_interrupt(irq, info->vq) == IRQ_HANDLED)
 			ret = IRQ_HANDLED;
 	}
@@ -99,6 +101,7 @@ static irqreturn_t vp_interrupt(int irq, void *opaque)
 	if (isr & VIRTIO_PCI_ISR_CONFIG)
 		vp_config_changed(irq, opaque);
 
+    /* 处理IO结束调用 */
 	return vp_vring_interrupt(irq, opaque);
 }
 
@@ -188,6 +191,7 @@ static struct virtqueue *vp_setup_vq(struct virtio_device *vdev, unsigned index,
 	if (!info)
 		return ERR_PTR(-ENOMEM);
 
+    /* 调用 */
 	vq = vp_dev->setup_vq(vp_dev, info, index, callback, name, ctx,
 			      msix_vec);
 	if (IS_ERR(vq))
@@ -361,6 +365,7 @@ static int vp_find_vqs_intx(struct virtio_device *vdev, unsigned nvqs,
 	if (!vp_dev->vqs)
 		return -ENOMEM;
 
+    /* 注册中断处理函数vp_interrupt,即vq中断 */
 	err = request_irq(vp_dev->pci_dev->irq, vp_interrupt, IRQF_SHARED,
 			dev_name(&vdev->dev), vp_dev);
 	if (err)
@@ -373,6 +378,7 @@ static int vp_find_vqs_intx(struct virtio_device *vdev, unsigned nvqs,
 			vqs[i] = NULL;
 			continue;
 		}
+        /* 完成virtqueue和vring的初始化 */
 		vqs[i] = vp_setup_vq(vdev, i, callbacks[i], names[i],
 				     ctx ? ctx[i] : false,
 				     VIRTIO_MSI_NO_VECTOR);
@@ -405,6 +411,7 @@ int vp_find_vqs(struct virtio_device *vdev, unsigned nvqs,
 	if (!err)
 		return 0;
 	/* Finally fall back to regular interrupts. */
+    /* 调用 */
 	return vp_find_vqs_intx(vdev, nvqs, vqs, callbacks, names, ctx);
 }
 
