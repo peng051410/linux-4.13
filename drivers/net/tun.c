@@ -156,6 +156,7 @@ struct tun_pcpu_stats {
  * other can only be read while rcu_read_lock or rtnl_lock is held.
  */
 struct tun_file {
+    /* 与底层打交道 */
 	struct sock sk;
 	struct socket socket;
 	struct socket_wq wq;
@@ -196,6 +197,7 @@ struct tun_struct {
 	kuid_t			owner;
 	kgid_t			group;
 
+    /* 表示宿主机上的tuntap网络设备 */
 	struct net_device	*dev;
 	netdev_features_t	set_features;
 #define TUN_USER_FEATURES (NETIF_F_HW_CSUM|NETIF_F_TSO_ECN|NETIF_F_TSO| \
@@ -1338,6 +1340,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
 #ifndef CONFIG_4KSTACKS
 	tun_rx_batched(tun, tfile, skb, more);
 #else
+    /* 将 skb 送给 tcp/ip 协议栈处理 */
 	netif_rx_ni(skb);
 #endif
 
@@ -1362,6 +1365,7 @@ static ssize_t tun_chr_write_iter(struct kiocb *iocb, struct iov_iter *from)
 	if (!tun)
 		return -EBADFD;
 
+    /* 从用户区接收数据 */
 	result = tun_get_user(tun, tfile, NULL, from,
 			      file->f_flags & O_NONBLOCK, false);
 
@@ -1856,6 +1860,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
 		if (err < 0)
 			goto err_free_flow;
 
+        /* 将设备注册内核,这样，就可以从宿主机看这块网卡了 */
 		err = register_netdevice(tun->dev);
 		if (err < 0)
 			goto err_detach;
@@ -2038,6 +2043,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
 	int ret;
 
 	if (cmd == TUNSETIFF || cmd == TUNSETQUEUE || _IOC_TYPE(cmd) == SOCK_IOC_TYPE) {
+        /* 从用户态拷贝配置到内核态 */
 		if (copy_from_user(&ifr, argp, ifreq_len))
 			return -EFAULT;
 	} else {
@@ -2064,11 +2070,13 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
 
 		ifr.ifr_name[IFNAMSIZ-1] = '\0';
 
+        /* 设置tuntap网络设备 */
 		ret = tun_set_iff(sock_net(&tfile->sk), file, &ifr);
 
 		if (ret)
 			goto unlock;
 
+        /* 将配置结果返回 */
 		if (copy_to_user(argp, &ifr, ifreq_len))
 			ret = -EFAULT;
 		goto unlock;
@@ -2359,6 +2367,7 @@ out:
 	return ret;
 }
 
+/* file代表打开的字符设备文件 */
 static int tun_chr_open(struct inode *inode, struct file * file)
 {
 	struct net *net = current->nsproxy->net_ns;
@@ -2385,6 +2394,7 @@ static int tun_chr_open(struct inode *inode, struct file * file)
 	tfile->sk.sk_write_space = tun_sock_write_space;
 	tfile->sk.sk_sndbuf = INT_MAX;
 
+    /* 创建的tfile指向file的private_data */
 	file->private_data = tfile;
 	INIT_LIST_HEAD(&tfile->next);
 
@@ -2433,6 +2443,7 @@ static const struct file_operations tun_fops = {
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = tun_chr_compat_ioctl,
 #endif
+    /* 到了驱动时就要调用(tun_chr_open) */
 	.open	= tun_chr_open,
 	.release = tun_chr_close,
 	.fasync = tun_chr_fasync,
@@ -2583,6 +2594,7 @@ static struct notifier_block tun_notifier_block __read_mostly = {
 	.notifier_call	= tun_device_event,
 };
 
+/* 打开"/dev/net/tun"字符设备后，内核会发生什么事情 */
 static int __init tun_init(void)
 {
 	int ret = 0;
@@ -2595,6 +2607,7 @@ static int __init tun_init(void)
 		goto err_linkops;
 	}
 
+    /* 注册tun_miscdev设备  */
 	ret = misc_register(&tun_miscdev);
 	if (ret) {
 		pr_err("Can't register misc device %d\n", TUN_MINOR);

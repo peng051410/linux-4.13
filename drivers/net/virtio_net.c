@@ -1187,6 +1187,7 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
 			return num_sg;
 		num_sg++;
 	}
+    /* 调用 */
 	return virtqueue_add_outbuf(sq->vq, sq->sg, num_sg, skb, GFP_ATOMIC);
 }
 
@@ -1210,6 +1211,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
 	skb_tx_timestamp(skb);
 
 	/* Try to transmit */
+    /* 尝试传输 */
 	err = xmit_skb(sq, skb);
 
 	/* This should not happen! */
@@ -1253,6 +1255,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 
 	if (kick || netif_xmit_stopped(txq))
+    /* 进行通知,此时触发IO，要去看QEMU的(virtio_net_handle_tx_bh) */
 		virtqueue_kick(sq->vq);
 
 	return NETDEV_TX_OK;
@@ -1986,6 +1989,7 @@ static int virtnet_xdp(struct net_device *dev, struct netdev_xdp *xdp)
 static const struct net_device_ops virtnet_netdev = {
 	.ndo_open            = virtnet_open,
 	.ndo_stop   	     = virtnet_close,
+    /* 当网络包到达virtio_net驱动时被调用 */
 	.ndo_start_xmit      = start_xmit,
 	.ndo_validate_addr   = eth_validate_addr,
 	.ndo_set_mac_address = virtnet_set_mac_address,
@@ -2198,7 +2202,9 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
 
 	/* Allocate/initialize parameters for send/receive virtqueues */
 	for (i = 0; i < vi->max_queue_pairs; i++) {
+        /* 接收队列的callback */
 		callbacks[rxq2vq(i)] = skb_recv_done;
+        /* 发送队列的callback */
 		callbacks[txq2vq(i)] = skb_xmit_done;
 		sprintf(vi->rq[i].name, "input.%d", i);
 		sprintf(vi->sq[i].name, "output.%d", i);
@@ -2208,6 +2214,7 @@ static int virtnet_find_vqs(struct virtnet_info *vi)
 			ctx[rxq2vq(i)] = true;
 	}
 
+    /* find_vqs会调用（vp_modern_find_vqs） */
 	ret = vi->vdev->config->find_vqs(vi->vdev, total_vqs, vqs, callbacks,
 					 names, ctx, NULL);
 	if (ret)
@@ -2281,10 +2288,12 @@ static int init_vqs(struct virtnet_info *vi)
 	int ret;
 
 	/* Allocate send & receive queues */
+    /* 分配发送与接收的queue */
 	ret = virtnet_alloc_queues(vi);
 	if (ret)
 		goto err;
 
+    /* 处理队列的实体 */
 	ret = virtnet_find_vqs(vi);
 	if (ret)
 		goto err_free;
@@ -2538,6 +2547,7 @@ static int virtnet_probe(struct virtio_device *vdev)
 	vi->max_queue_pairs = max_queue_pairs;
 
 	/* Allocate/initialize the rx/tx queues, and invoke find_vqs */
+    /* 初始化发送与接收的virtqueue */
 	err = init_vqs(vi);
 	if (err)
 		goto free_stats;
@@ -2551,6 +2561,7 @@ static int virtnet_probe(struct virtio_device *vdev)
 
 	virtnet_init_settings(dev);
 
+    /* 注册网络设备 */
 	err = register_netdev(dev);
 	if (err) {
 		pr_debug("virtio_net: registering device failed\n");
@@ -2703,6 +2714,7 @@ static struct virtio_driver virtio_net_driver = {
 	.driver.owner =	THIS_MODULE,
 	.id_table =	id_table,
 	.validate =	virtnet_validate,
+    /* 驱动注册时probe被调用 */
 	.probe =	virtnet_probe,
 	.remove =	virtnet_remove,
 	.config_changed = virtnet_config_changed,
@@ -2712,6 +2724,7 @@ static struct virtio_driver virtio_net_driver = {
 #endif
 };
 
+/* virtio_net 的驱动程序代码 */
 static __init int virtio_net_driver_init(void)
 {
 	int ret;
@@ -2726,7 +2739,7 @@ static __init int virtio_net_driver_init(void)
 				      NULL, virtnet_cpu_dead);
 	if (ret)
 		goto err_dead;
-
+    /* 注册驱动函数(virtio_net_driver) */
         ret = register_virtio_driver(&virtio_net_driver);
 	if (ret)
 		goto err_virtio;

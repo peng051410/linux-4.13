@@ -494,6 +494,7 @@ int virtqueue_add_outbuf(struct virtqueue *vq,
 			 void *data,
 			 gfp_t gfp)
 {
+    /* 将网络包放到队列中 */
 	return virtqueue_add(vq, &sg, num, 1, 0, data, NULL, gfp);
 }
 EXPORT_SYMBOL_GPL(virtqueue_add_outbuf);
@@ -629,6 +630,7 @@ EXPORT_SYMBOL_GPL(virtqueue_notify);
 bool virtqueue_kick(struct virtqueue *vq)
 {
 	if (virtqueue_kick_prepare(vq))
+    /* notify了 */
 		return virtqueue_notify(vq);
 	return true;
 }
